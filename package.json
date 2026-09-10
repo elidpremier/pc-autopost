@@ -1,0 +1,36 @@
+{
+  "name": "pc-autopost",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PC AutoPost — MVP de génération et de gestion de contenus pour vendeurs d'ordinateurs d'occasion",
+  "scripts": {
+    "predev": "node scripts/check-env.js",
+    "prebuild": "node scripts/check-env.js",
+    "prestart": "node scripts/check-env.js",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "make-sample": "tsx scripts/make-sample.ts",
+    "seed": "tsx scripts/seed.ts",
+    "test-pipeline": "tsx scripts/test-pipeline.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
+    "tesseract.js": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
