@@ -226,10 +226,14 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
   /* Stockage */
   let cap: number | null = null;
   let stype: StorageType | null = null;
-  const stLabel = labelValue(text, ['STOCKAGE', 'DISQUE', 'SSD']);
+  // Ne chercher "SSD" comme label qu'au début de ligne ou après deux-points
+  const stLabelRaw = labelValue(text, ['STOCKAGE', 'DISQUE']);
+  const stLabel = stLabelRaw ?? null;
   const pool = stLabel ?? text;
+  // type-avant-capacité : "SSD 512Go"
   const typeFirst = pool.match(/(SSD|HDD|NVME|EMMC)[^\d]{0,14}(\d{3,4})\s*(?:GO|GB)/i);
-  const capFirst = pool.match(/(\d{3,4})\s*(?:GO|GB)[^A-Z]{0,14}(SSD|HDD|NVME|EMMC)/i);
+  // capacité-avant-type : "512Go SSD" (aussi "512Go, SSD")
+  const capFirst = pool.match(/(\d{3,4})\s*(?:GO|GB)[\s,.-]{0,6}(SSD|HDD|NVME|EMMC)/i);
   const capOnly = pool.match(/(\d{3,4})\s*(?:GO|GB)/i);
   if (typeFirst) {
     cap = parseNumber(typeFirst[2]);
@@ -240,23 +244,60 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
   } else if (capOnly) {
     cap = parseNumber(capOnly[1]);
   }
-  if (cap !== null && (cap < 32 || cap > 16384)) cap = null;
+  // Validation plage réaliste (32 Go — 8 To)
+  if (cap !== null && (cap < 32 || cap > 8192)) cap = null;
   found.storage_capacity_gb = cap !== null ? { value: String(cap), confidence: 0.85 } : null;
   found.storage_type = stype ? { value: stype, confidence: 0.8 } : null;
 
-  /* Écran */
+  /* Écran — priorité à l'étiquette explicite ECRAN : ... */
   let screenSize: number | null = null;
-  const scrM = text.match(/(\d{2}(?:[.,]\d)?)\s*(?:POUCES?|POLS?|INCH|"\b|\bP\b)/i);
-  if (scrM) {
-    screenSize = parseFloat(scrM[1].replace(',', '.'));
-    if (screenSize < 10 || screenSize > 23) screenSize = null;
-  }
-  found.screen_size = screenSize !== null ? { value: String(screenSize), confidence: 0.8 } : null;
   let resolution: string | null = null;
-  if (/FULL\s?HD|FHD|1920\s*[X×]\s*1080/i.test(text)) resolution = 'Full HD';
-  else if (/WQHD|2560\s*[X×]\s*1440/i.test(text)) resolution = 'WQHD';
-  else if (/\bQHD\b|1440P/i.test(text)) resolution = 'QHD';
-  found.screen_resolution = resolution ? { value: resolution, confidence: 0.8 } : null;
+  const scrLabel = labelValue(text, ['ECRAN', 'ÉCRAN', 'DISPLAY', 'MONITEUR', 'SCREEN']);
+  const scrPool = scrLabel ? `${scrLabel}\n${text}` : text;
+
+  // 1) Marqueur explicite : "14 pouces", '14"', "14 inch"
+  const scrExplicit = scrPool.match(/(\d{1,2}(?:[.,]\d)?)\s*(?:POUCES?|POLS?|INCH(?:ES)?|")/i);
+  // 2) Format collé à "écran" sans espace : "écran14", "ecran14.1"
+  const scrInline = text.match(/[ée]cran\s*(\d{1,2}(?:[.,]\d)?)/i);
+  // 3) Contexte : nombre entre 10 et 23 entouré de mots liés à l'écran
+  const scrContext = text.match(/(?:[ée]cran|screen|display|pouces?|inch)\D{0,10}(\d{1,2}(?:[.,]\d)?)|(\d{1,2}(?:[.,]\d)?)\D{0,10}(?:[ée]cran|screen|display|pouces?|inch)/i);
+
+  for (const m of [scrExplicit, scrInline, scrContext]) {
+    if (m) {
+      const raw = ((m[1] ?? m[2]) || '').replace(',', '.');
+      const val = parseFloat(raw);
+      if (val >= 10 && val <= 23) { screenSize = val; break; }
+    }
+  }
+  found.screen_size = screenSize !== null ? { value: String(screenSize), confidence: 0.85 } : null;
+
+  // Résolution : attention, ne pas confondre "HD" dans "HDMI" avec une résolution
+  if (/FULL\s?HD|FHD|1920\s*[X×]\s*1080/i.test(scrPool)) resolution = 'Full HD';
+  else if (/4K|UHD\s*4K/i.test(scrPool)) resolution = '4K UHD';
+  else if (/WQHD|2560\s*[X×]\s*1440/i.test(scrPool)) resolution = 'WQHD';
+  else if (/\bQHD\b|1440P/i.test(scrPool)) resolution = 'QHD';
+  else {
+    // Cherche "HD" uniquement s'il n'est pas collé à MI (HDMI) ou suivi de lettre
+    const r = scrPool.match(/\bFull HD\b|\b4K UHD\b|\b4K\b|\bWQHD\b|\bQHD\b|(?<!HD)\bHD\b(?!MI|[A-Z])/i);
+    if (r) resolution = r[0].trim();
+  }
+
+  // Tactile : chercher dans tout le texte (pas seulement scrPool)
+  const isTouchScreen = /tactil|touch/i.test(text);
+  if (isTouchScreen) {
+    resolution = resolution ? `${resolution} Tactile` : 'Tactile';
+  }
+
+  // Pliable / Convertible x360 : chercher x360 / 360° / 360 / convertible / pliable
+  const isX360 = /x360|360°|360\b|convertible|pliable|2-en-1|2 in 1/i.test(text);
+  if (isX360) {
+    if (resolution && !/360|x360/i.test(resolution)) {
+      resolution = `${resolution} x360`;
+    } else if (!resolution) {
+      resolution = 'x360';
+    }
+  }
+  found.screen_resolution = resolution ? { value: resolution, confidence: 0.85 } : null;
 
   /* Carte graphique — priorité à l'étiquette GRAPHIQUE : */
   let graphics: string | null = null;
@@ -293,29 +334,27 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
 
   /* Ports */
   const PORT_TOKENS: [string, RegExp][] = [
-    ['USB-C', /USB\s?C\b/i],
+    ['USB-C', /USB\s?[-_]?C\b|TYPE\s?[-_]?C/i],
     ['USB 3.0', /USB\s?3\b/i],
     ['USB', /\bUSB\b/i],
-    ['RJ45', /RJ\s?45/i],
+    ['RJ45', /RJ\s?45|ETHERNET|LAN/i],
     ['HDMI', /\bHDMI\b/i],
     ['VGA', /\bVGA\b/i],
-    ['SD', /\bSD\b/i],
-    ['Jack 3,5', /JACK|3\s?,?\s?5\s?MM/i],
+    ['SD', /\bSD\b|CARD\s*READER|LECTEUR\s*SD/i],
+    ['Jack 3,5', /JACK|3\s?,?\s?5\s?MM|AUDIO/i],
     ['DisplayPort', /DISPLAY\s?PORT|DP\b/i],
     ['Thunderbolt', /THUNDERBOLT|\bTB\b/i],
   ];
   let ports: string[] = [];
-  const portsLine = text
-    .split('\n')
-    .find((l) => /PORTS?|CONNECT|INTERFACE/i.test(l));
-  const portPool = portsLine ?? text;
+  const portsLabel = labelValue(text, ['PORTS', 'PORT', 'CONNECTIQUE', 'CONNECTIVITE', 'INTERFACES']);
+  const portPool = portsLabel ? `${portsLabel}\n${text}` : text;
   for (const [label, re] of PORT_TOKENS) {
     if (re.test(portPool) && !ports.includes(label)) ports.push(label);
   }
   if (ports.length > 1 && ports.includes('USB') && ports.includes('USB-C')) {
     ports = ports.filter((p) => p !== 'USB');
   }
-  found.ports = ports.length >= 2 ? { value: ports, confidence: 0.65, note: 'liste issue de la fiche' } : null;
+  found.ports = ports.length >= 1 ? { value: ports, confidence: 0.75, note: 'liste issue de la fiche' } : null;
 
   /* Batterie — formulation conservée telle quelle (spec §22.3), première clause seulement */
   let battery: string | null = null;
@@ -401,18 +440,29 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
     return { key, label, value: f ? (f.value as ExtractedField['value']) : null, confidence: f ? f.confidence : 0, note: f?.note };
   });
 
+  const storageCap = found.storage_capacity_gb ? parseInt(found.storage_capacity_gb.value as string, 10) : null;
+  const storageType = (found.storage_type?.value as StorageType | null) ?? null;
+  const screenSizeVal = found.screen_size ? parseFloat(found.screen_size.value as string) : null;
+  const screenResVal = (found.screen_resolution?.value as string | null) ?? null;
+  const batteryVal = (found.battery?.value as string | null) ?? null;
+
   const structured: Record<string, unknown> = {
     brand: found.brand?.value ?? null,
     model: found.model?.value ?? null,
     processor: found.processor?.value ?? null,
     cores: found.cores?.value ?? null,
     ram_gb: found.ram_gb ? parseInt(found.ram_gb.value as string, 10) : null,
-    storage: { capacity_gb: found.storage_capacity_gb ? parseInt(found.storage_capacity_gb.value as string, 10) : null, type: found.storage_type?.value ?? null },
-    screen: { size: found.screen_size ? parseFloat(found.screen_size.value as string) : null, resolution: found.screen_resolution?.value ?? null },
+    storage_capacity_gb: storageCap,
+    storage_type: storageType,
+    storage: { capacity_gb: storageCap, type: storageType },
+    screen_size: screenSizeVal,
+    screen_resolution: screenResVal,
+    screen: { size: screenSizeVal, resolution: screenResVal },
     graphics: found.graphics?.value ?? null,
     keyboard: found.keyboard?.value ?? null,
     ports: found.ports?.value ?? [],
-    battery: found.battery?.value ?? null,
+    battery_note: batteryVal,
+    battery: batteryVal,
     accessories: found.accessories?.value ?? [],
     warranty: found.warranty?.value ?? null,
     price_amount: found.price_amount ? parseInt(found.price_amount.value as string, 10) : null,

@@ -99,8 +99,44 @@ export default function SpecForm({ value, sources, onChange }: Props) {
           <Field label="Écran (pouces)" source={sources.screen_size}>
             <input className="input" type="number" step="0.5" min="8" max="24" value={value.screen_size ?? ''} onChange={(e) => onChange({ screen_size: num(e.target.value) })} placeholder="14" />
           </Field>
-          <Field label="Résolution" source={sources.screen_resolution}>
-            <input className="input" value={value.screen_resolution ?? ''} onChange={(e) => onChange({ screen_resolution: e.target.value || null })} placeholder="Full HD" />
+          <Field label="Résolution / Type d'écran" source={sources.screen_resolution}>
+            <input className="input" value={value.screen_resolution ?? ''} onChange={(e) => onChange({ screen_resolution: e.target.value || null })} placeholder="Full HD Tactile x360" />
+            <div className="mt-1.5 flex items-center gap-3 select-none text-xs">
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={/tactil|touch/i.test(value.screen_resolution || '')}
+                  onChange={(e) => {
+                    let res = value.screen_resolution || '';
+                    if (e.target.checked) {
+                      if (!/tactil|touch/i.test(res)) res = res ? `${res} Tactile` : 'Tactile';
+                    } else {
+                      res = res.replace(/\s*tactile/gi, '').replace(/\s*touchscreen/gi, '').replace(/\s*touch/gi, '').trim();
+                    }
+                    onChange({ screen_resolution: res || null });
+                  }}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span className="font-semibold text-slate-700 dark:text-slate-300">🖐️ Tactile</span>
+              </label>
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={/360|x360/i.test(value.screen_resolution || '')}
+                  onChange={(e) => {
+                    let res = value.screen_resolution || '';
+                    if (e.target.checked) {
+                      if (!/360|x360/i.test(res)) res = res ? `${res} x360` : 'x360';
+                    } else {
+                      res = res.replace(/\s*x360/gi, '').replace(/\s*360°/gi, '').replace(/\s*360/gi, '').trim();
+                    }
+                    onChange({ screen_resolution: res || null });
+                  }}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span className="font-semibold text-slate-700 dark:text-slate-300">🔄 x360°</span>
+              </label>
+            </div>
           </Field>
         </div>
         <Field label="Carte graphique" source={sources.graphics} hint="À n’inventer jamais — laisser vide si inconnu.">

@@ -19,17 +19,25 @@ const FORMAT_CARDS: { format: Format; tag: string; icon: string }[] = [
 ];
 
 const TEMPLATE_OPTIONS: { id: string; label: string; badge: string; color: string }[] = [
-  { id: 'cyber_luxe_v2', label: 'Cyber Luxe v2', badge: '⭐ PSD Premium', color: 'bg-lime-400' },
-  { id: 'clean_minimal', label: 'Clean E-Commerce', badge: 'Épuré', color: 'bg-emerald-500' },
-  { id: 'dark_luxe', label: 'Dark Tech Luxe', badge: 'Sombre', color: 'bg-cyan-500' },
-  { id: 'promo_banner', label: 'Bannière Promo', badge: 'High Impact', color: 'bg-amber-500' },
-  { id: 'pro', label: 'Pro Classic', badge: 'Standard', color: 'bg-blue-500' },
+  { id: 'cyber_luxe_v2', label: 'Cyber Luxe v2', badge: 'Base PSD Ultra-Tech', color: 'bg-purple-500' },
+  { id: 'promo_banner', label: 'Bannière Promo', badge: 'High Impact Offre', color: 'bg-lime-400' },
+];
+
+const COLOR_PRESETS = [
+  { name: 'Violet PSD', primary: '#7C3AED', accent: '#CCFF00' },
+  { name: 'Bleu Cyber', primary: '#2563EB', accent: '#00F0FF' },
+  { name: 'Cyan Tech', primary: '#06B6D4', accent: '#FF0055' },
+  { name: 'Vert Émeraude', primary: '#059669', accent: '#FFD700' },
+  { name: 'Rouge Impact', primary: '#DC2626', accent: '#FFCC00' },
+  { name: 'Ambre Gold', primary: '#D97706', accent: '#00FFFF' },
 ];
 
 export default function GeneratePanel({ computerId, missing, texts, tick }: Props) {
   const [selectedFormat, setSelectedFormat] = useState<Format | null>(null);
   const [studioOpen, setStudioOpen] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<string>('cyber_luxe_v2');
+  const [colorPrimary, setColorPrimary] = useState<string>('#7C3AED');
+  const [colorAccent, setColorAccent] = useState<string>('#CCFF00');
 
   function openStudio(f: Format) {
     setSelectedFormat(f);
@@ -57,10 +65,42 @@ export default function GeneratePanel({ computerId, missing, texts, tick }: Prop
       </div>
 
       {/* Sélecteur de Style Visuel */}
-      <div className="mb-5">
-        <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-          1. Choisir le style visuel
-        </p>
+      <div className="mb-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+            1. Choisir le style visuel & les couleurs
+          </p>
+          {missing.length === 0 && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/computers/${computerId}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      formats: ['square', 'portrait', 'story', 'detail'],
+                      templateId: activeTemplate,
+                      colorPrimary,
+                      colorAccent,
+                    }),
+                  });
+                  if (res.ok) {
+                    alert('⚡ Les 4 visuels ont été générés avec succès !');
+                    window.location.reload();
+                  }
+                } catch {
+                  alert('Erreur lors de la génération');
+                }
+              }}
+              className="rounded-lg bg-gradient-to-r from-lime-500 to-emerald-500 px-3 py-1.5 text-xs font-black text-black shadow hover:scale-105 transition"
+            >
+              ⚡ Générer les 4 formats d&apos;un coup
+            </button>
+          )}
+        </div>
+
+        {/* Boutons de Modèle */}
         <div className="flex flex-wrap gap-2">
           {TEMPLATE_OPTIONS.map((t) => {
             const active = activeTemplate === t.id;
@@ -82,13 +122,35 @@ export default function GeneratePanel({ computerId, missing, texts, tick }: Prop
             );
           })}
         </div>
-        {activeTemplateInfo && (
-          <p className="mt-1.5 text-[10px] text-slate-400">
-            Aperçu actif :{' '}
-            <span className="font-bold text-slate-600 dark:text-slate-300">{activeTemplateInfo.label}</span>{' '}
-            — {activeTemplateInfo.badge}
-          </p>
-        )}
+
+        {/* Choix des couleurs de thème */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[10px] font-extrabold uppercase text-slate-400">Couleurs :</span>
+          {COLOR_PRESETS.map((p) => {
+            const isSelected = colorPrimary.toUpperCase() === p.primary.toUpperCase() && colorAccent.toUpperCase() === p.accent.toUpperCase();
+            return (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => {
+                  setColorPrimary(p.primary);
+                  setColorAccent(p.accent);
+                }}
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-bold transition ${
+                  isSelected
+                    ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-200'
+                    : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex h-2.5 w-5 items-center overflow-hidden rounded-sm border border-black/20">
+                  <span className="h-full w-1/2" style={{ backgroundColor: p.primary }} />
+                  <span className="h-full w-1/2" style={{ backgroundColor: p.accent }} />
+                </div>
+                {p.name.split(' ')[0]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Formats d'Aperçu */}
@@ -110,7 +172,8 @@ export default function GeneratePanel({ computerId, missing, texts, tick }: Prop
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {FORMAT_CARDS.map(({ format, tag, icon }) => {
             const info = FORMAT_INFO[format];
-            const previewSrc = `/api/computers/${computerId}/preview?format=${format}&template=${activeTemplate}&t=${tick ?? 0}`;
+            const colorQuery = `&colorPrimary=${encodeURIComponent(colorPrimary)}&colorAccent=${encodeURIComponent(colorAccent)}`;
+            const previewSrc = `/api/computers/${computerId}/preview?format=${format}&template=${activeTemplate}${colorQuery}&t=${tick ?? 0}`;
 
             return (
               <div
@@ -167,6 +230,7 @@ export default function GeneratePanel({ computerId, missing, texts, tick }: Prop
           initialFormat={selectedFormat}
           initialTemplate={activeTemplate}
           texts={texts}
+          onUpdated={() => window.location.reload()}
         />
       )}
     </section>

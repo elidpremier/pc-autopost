@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: Ctx) {
   const computer = getComputer(params.id);
   if (!computer) return NextResponse.json({ error: 'Produit introuvable' }, { status: 404 });
 
-  let body: { formats?: Format[]; templateId?: string };
+  let body: { formats?: Format[]; templateId?: string; colorPrimary?: string; colorAccent?: string };
   try {
     body = await req.json();
   } catch {
@@ -43,9 +43,12 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   const settings = getSettings();
-  const templateId = (body.templateId || settings.default_template || 'clean_minimal').trim();
-  const template = TEMPLATES[templateId] || TEMPLATES.clean_minimal;
-  const data = buildTemplateData(computer, settings);
+  const templateId = (body.templateId || settings.default_template || 'cyber_luxe_v2').trim();
+  const template = TEMPLATES[templateId] || TEMPLATES.cyber_luxe_v2;
+  const data = buildTemplateData(computer, settings, {
+    primaryColor: body.colorPrimary,
+    accentColor: body.colorAccent,
+  });
 
   const images = listImages(computer.id);
   const original = images.find((i) => i.kind === 'main');

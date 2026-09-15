@@ -12,13 +12,24 @@ export function truncate(s: string, max: number): string {
   return s.slice(0, Math.max(0, max - 1)).trimEnd() + '…';
 }
 
-/** Retour à la ligne naïf par mots (largeur approximée en caractères). */
+/** Retour à la ligne intelligent par mots (largeur approximée en caractères) avec découpe forcée des mots trop longs. */
 export function wrapText(s: string, maxChars: number): string[] {
   const words = s.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = '';
   for (const w of words) {
-    if (!line) {
+    if (w.length > maxChars) {
+      if (line) {
+        lines.push(line);
+        line = '';
+      }
+      let remaining = w;
+      while (remaining.length > maxChars) {
+        lines.push(remaining.slice(0, maxChars));
+        remaining = remaining.slice(maxChars);
+      }
+      line = remaining;
+    } else if (!line) {
       line = w;
     } else if ((line + ' ' + w).length <= maxChars) {
       line += ' ' + w;

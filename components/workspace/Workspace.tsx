@@ -206,7 +206,7 @@ Je vous propose le PC suivant :
           case 'warranty':
             if (typeof f.value === 'string') {
               patch[f.key as keyof ComputerFields] = f.value as never;
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
             }
             break;
           case 'ram_gb':
@@ -215,21 +215,21 @@ Je vous propose le PC suivant :
             const n = parseInt(f.value as string, 10);
             if (Number.isFinite(n) && n > 0) {
               patch[f.key as keyof ComputerFields] = n as never;
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
             }
             break;
           }
           case 'storage_type':
             if (['SSD', 'HDD', 'NVMe', 'eMMC', 'autre'].includes(f.value as string)) {
               patch.storage_type = f.value as StorageType;
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
             }
             break;
           case 'screen_size': {
             const n = parseFloat(f.value as string);
             if (Number.isFinite(n) && n > 0) {
               patch.screen_size = n;
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
             }
             break;
           }
@@ -237,13 +237,31 @@ Je vous propose le PC suivant :
           case 'accessories':
             if (Array.isArray(f.value)) {
               patch[f.key as keyof ComputerFields] = f.value as never;
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
             }
             break;
           case 'battery':
             if (typeof f.value === 'string') {
               patch.battery_note = f.value; // formulation conservée telle quelle
-              nextSources[f.key] = 'ocr';
+              nextSources[f.key] = sourceKey;
+            }
+            break;
+          case 'condition':
+            if (typeof f.value === 'string' && ['neuf', 'tres_bon', 'bon', 'correct', 'a_reparer'].includes(f.value)) {
+              patch.condition = f.value as Condition;
+              nextSources[f.key] = sourceKey;
+            }
+            break;
+          case 'status':
+            if (typeof f.value === 'string' && ['available', 'reserved', 'sold', 'archived'].includes(f.value)) {
+              patch.status = f.value as import('@/lib/types').PcStatus;
+              nextSources[f.key] = sourceKey;
+            }
+            break;
+          case 'currency':
+            if (typeof f.value === 'string' && f.value.trim()) {
+              patch.currency = f.value.trim();
+              nextSources[f.key] = sourceKey;
             }
             break;
         }

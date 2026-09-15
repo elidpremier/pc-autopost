@@ -5,6 +5,7 @@ const STYLES: Record<PcStatus, string> = {
   reserved: 'bg-amber-100 text-amber-700',
   sold: 'bg-slate-200 text-slate-600',
   archived: 'bg-slate-100 text-slate-500',
+  duplicate: 'bg-red-100 text-red-700 border border-red-300',
 };
 
 export default function StatusBadge({ status }: { status: PcStatus }) {

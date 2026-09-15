@@ -20,11 +20,13 @@ export async function GET(req: Request, { params }: Ctx) {
 
   const { searchParams } = new URL(req.url);
   const format = (searchParams.get('format') || 'square') as Format;
-  const templateId = searchParams.get('template') || 'clean_minimal';
+  const templateId = searchParams.get('template') || 'cyber_luxe_v2';
+  const colorPrimary = searchParams.get('colorPrimary') || undefined;
+  const colorAccent = searchParams.get('colorAccent') || undefined;
   const isDownload = searchParams.get('download') === '1';
 
   const settings = getSettings();
-  const data = buildTemplateData(computer, settings);
+  const data = buildTemplateData(computer, settings, { primaryColor: colorPrimary, accentColor: colorAccent });
 
   const images = listImages(computer.id);
   const original = images.find((i) => i.kind === 'main');

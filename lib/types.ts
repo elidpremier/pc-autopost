@@ -1,6 +1,6 @@
 // Types partagés de PC AutoPost
 
-export type PcStatus = 'available' | 'reserved' | 'sold' | 'archived';
+export type PcStatus = 'available' | 'reserved' | 'sold' | 'archived' | 'duplicate';
 export type Condition = 'neuf' | 'tres_bon' | 'bon' | 'correct' | 'a_reparer';
 export type BatteryCondition = 'non_renseignee' | 'excellente' | 'bonne' | 'faible';
 export type StorageType = 'SSD' | 'HDD' | 'NVMe' | 'eMMC' | 'autre';
@@ -15,6 +15,7 @@ export const STATUS_LABELS: Record<PcStatus, string> = {
   reserved: 'Réservé',
   sold: 'Vendu',
   archived: 'Archivé',
+  duplicate: '⚠️ Doublon',
 };
 
 export const CONDITION_LABELS: Record<Condition, string> = {

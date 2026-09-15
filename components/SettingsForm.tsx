@@ -6,11 +6,17 @@ import type { Settings } from '@/lib/types';
 type Props = { initial: Settings };
 
 const TEMPLATE_LIST = [
-  { id: 'cyber_luxe_v2', name: 'Cyber Luxe v2 — Premium Tech (Recommandé - Style PSD)' },
-  { id: 'clean_minimal', name: 'Clean E-Commerce' },
-  { id: 'dark_luxe', name: 'Dark Tech Luxe' },
-  { id: 'promo_banner', name: 'Bannière Promo' },
-  { id: 'pro', name: 'Professionnel Classic' },
+  { id: 'cyber_luxe_v2', name: 'Cyber Luxe v2 — Style PSD Ultra-Tech (Principal)' },
+  { id: 'promo_banner', name: 'Bannière Promo — Spécial Offre & Remise' },
+];
+
+const COLOR_PRESETS = [
+  { name: 'Violet PSD', primary: '#7C3AED', accent: '#CCFF00' },
+  { name: 'Bleu Cyber', primary: '#2563EB', accent: '#00F0FF' },
+  { name: 'Cyan Tech', primary: '#06B6D4', accent: '#FF0055' },
+  { name: 'Vert Émeraude', primary: '#059669', accent: '#FFD700' },
+  { name: 'Rouge Impact', primary: '#DC2626', accent: '#FFCC00' },
+  { name: 'Ambre Gold', primary: '#D97706', accent: '#00FFFF' },
 ];
 
 export default function SettingsForm({ initial }: Props) {
@@ -19,9 +25,9 @@ export default function SettingsForm({ initial }: Props) {
   const [phone, setPhone] = useState(initial.phone);
   const [city, setCity] = useState(initial.city);
   const [currency, setCurrency] = useState(initial.currency);
-  const [colorPrimary, setColorPrimary] = useState(initial.color_primary);
-  const [colorAccent, setColorAccent] = useState(initial.color_accent);
-  const [defaultTemplate, setDefaultTemplate] = useState(initial.default_template || 'clean_minimal');
+  const [colorPrimary, setColorPrimary] = useState(initial.color_primary || '#7C3AED');
+  const [colorAccent, setColorAccent] = useState(initial.color_accent || '#CCFF00');
+  const [defaultTemplate, setDefaultTemplate] = useState(initial.default_template || 'cyber_luxe_v2');
   const [facebookPageId, setFacebookPageId] = useState(initial.facebook_page_id || '');
   const [facebookToken, setFacebookToken] = useState(initial.facebook_page_access_token || '');
 
@@ -152,12 +158,47 @@ export default function SettingsForm({ initial }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:col-span-2">
             <div>
-              <label className="label">Couleur principale</label>
-              <input type="color" className="input h-11 !p-1" value={colorPrimary} onChange={(e) => setColorPrimary(e.target.value)} />
+              <label className="label">Couleur principale (Titres & Thème)</label>
+              <div className="flex items-center gap-2">
+                <input type="color" className="input h-11 w-16 !p-1 cursor-pointer" value={colorPrimary} onChange={(e) => setColorPrimary(e.target.value)} />
+                <input type="text" className="input text-xs uppercase font-mono" value={colorPrimary} onChange={(e) => setColorPrimary(e.target.value)} />
+              </div>
             </div>
             <div>
-              <label className="label">Couleur accent (Boutons/Prix)</label>
-              <input type="color" className="input h-11 !p-1" value={colorAccent} onChange={(e) => setColorAccent(e.target.value)} />
+              <label className="label">Couleur accent (Prix & Badges)</label>
+              <div className="flex items-center gap-2">
+                <input type="color" className="input h-11 w-16 !p-1 cursor-pointer" value={colorAccent} onChange={(e) => setColorAccent(e.target.value)} />
+                <input type="text" className="input text-xs uppercase font-mono" value={colorAccent} onChange={(e) => setColorAccent(e.target.value)} />
+              </div>
+            </div>
+            <div className="col-span-2 mt-1">
+              <label className="mb-2 block text-xs font-bold text-slate-500">🎨 Thèmes de couleurs prédéfinis :</label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PRESETS.map((p) => {
+                  const isSelected = colorPrimary.toUpperCase() === p.primary.toUpperCase() && colorAccent.toUpperCase() === p.accent.toUpperCase();
+                  return (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => {
+                        setColorPrimary(p.primary);
+                        setColorAccent(p.accent);
+                      }}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-200'
+                          : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex h-3.5 w-7 items-center overflow-hidden rounded-md border border-black/20">
+                        <span className="h-full w-1/2" style={{ backgroundColor: p.primary }} />
+                        <span className="h-full w-1/2" style={{ backgroundColor: p.accent }} />
+                      </div>
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
