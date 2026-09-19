@@ -53,15 +53,19 @@ export async function testFacebookConnection(
 }
 
 /**
- * Publie une photo générée avec légende sur la Page Facebook via l'API Graph.
+ * Publie une photo avec légende sur la Page Facebook via l'API Graph.
+ * Accepte soit un Buffer d'image en mémoire, soit un chemin de fichier sur disque.
  */
 export async function publishToFacebookPage(params: {
   pageId: string;
   accessToken: string;
-  imagePath: string;
   caption: string;
+  /** Buffer d'image (prioritaire) */
+  imageBuffer?: Buffer;
+  /** Chemin fichier sur disque (fallback, si imageBuffer absent) */
+  imagePath?: string;
 }): Promise<FacebookPublishResult> {
-  const { pageId, accessToken, imagePath, caption } = params;
+  const { pageId, accessToken, caption, imageBuffer, imagePath } = params;
 
   const cleanId = (pageId || '').trim();
   const cleanToken = (accessToken || '').trim();
@@ -70,12 +74,20 @@ export async function publishToFacebookPage(params: {
     return { success: false, error: 'Veuillez configurer votre Page ID et votre Access Token dans les Réglages.' };
   }
 
-  if (!fs.existsSync(imagePath)) {
-    return { success: false, error: "Fichier d'image généré introuvable sur le disque." };
+  let fileBuffer: Buffer;
+
+  if (imageBuffer) {
+    fileBuffer = imageBuffer;
+  } else if (imagePath) {
+    if (!fs.existsSync(imagePath)) {
+      return { success: false, error: "Fichier d'image généré introuvable sur le disque." };
+    }
+    fileBuffer = fs.readFileSync(imagePath);
+  } else {
+    return { success: false, error: "Aucune image fournie pour la publication." };
   }
 
   try {
-    const fileBuffer = fs.readFileSync(imagePath);
     const blob = new Blob([fileBuffer], { type: 'image/jpeg' });
 
     const formData = new FormData();

@@ -21,10 +21,13 @@ Règles carte graphique :
 - Format standard et épuré pour "graphique".
 - Supprimer impérativement les mentions parasites et marques déposées : "(R)", "(TM)", "Laptop GPU", "Mobile GPU", "Controller", "Display Adapter", "Family".
 - Standardiser selon les gammes :
-  * Intel : "Intel Iris Xe", "Intel Iris Plus", "Intel UHD Graphics [modèle]", "Intel HD Graphics [modèle]", "Intel Arc [modèle]"
-  * NVIDIA : "NVIDIA GeForce RTX [modèle]" (ex: "NVIDIA GeForce RTX 3050"), "NVIDIA GeForce GTX [modèle]", "NVIDIA GeForce MX[modèle]", "NVIDIA Quadro [modèle]"
-  * AMD : "AMD Radeon [modèle]", "AMD Radeon Vega [chiffre]", "AMD Radeon RX [modèle]"
-- Si la mémoire VRAM dédiée est précisée (ex: 4Go, 6GB), l'ajouter de manière concise entre parenthèses à la fin (ex: "NVIDIA GeForce RTX 3050 (4 Go)").
+  * Intel : "Intel Iris Xe", "Intel Iris Plus", "Intel UHD Graphics [modèle]", "Intel HD Graphics [modèle]", "Intel Arc [modèle]", "Intel Graphics"
+  * NPU / Accélérateurs IA : "Intel NPU", "Intel AI Boost", "AMD Ryzen AI NPU", "Qualcomm Hexagon NPU", "Apple Neural Engine"
+  * NVIDIA : "NVIDIA GeForce RTX [modèle]", "NVIDIA GeForce GTX [modèle]", "NVIDIA GeForce MX[modèle]", "NVIDIA Quadro [modèle]", "NVIDIA RTX [modèle]"
+  * AMD : "AMD Radeon [modèle]", "AMD Radeon Vega [chiffre]", "AMD Radeon RX [modèle]", "AMD Radeon Pro [modèle]"
+- DÉDIÉE vs INTÉGRÉE :
+  * Si c'est une carte graphique DÉDIÉE (NVIDIA RTX/GTX/MX/Quadro, AMD Radeon RX/Pro, Intel Arc A/B) et que la VRAM dédiée est précisée (en Go ou Mo, ex: 4Go, 512Mo, 6GB), l'ajouter entre parenthèses à la fin : "(4 Go)" ou "(512 Mo)" (ex: "NVIDIA GeForce RTX 3050 (4 Go)").
+  * Si c'est une carte graphique INTÉGRÉE (Intel Iris Xe, Intel UHD/HD, Intel Arc Graphics, AMD Radeon/Vega/780M, Apple M-series GPU) ou un NPU (Intel NPU, Intel AI Boost, AMD Ryzen AI NPU), NE JAMAIS ajouter de VRAM ou mémoire partagée. Spécifier la carte/NPU seule (ex: "Intel Iris Xe", "Intel NPU").
 
 Règles écran (IMPORTANT) :
 - Format pour "ecran" : {"pouces": nombre_ou_null, "resolution": "résolution_ou_null"}.
@@ -263,10 +266,11 @@ export async function llmRefineGraphics(currentGraphics: string, contextHint?: s
   if (!cfg) return null;
 
   const prompt = `Tu es un assistant expert en fiches techniques d'ordinateurs.
-Ta mission est UNIQUEMENT de formater et standardiser la carte graphique fournie selon les règles strictes suivantes :
-1. Format épuré : "Intel Iris Xe", "Intel UHD Graphics 620", "NVIDIA GeForce RTX 3050", "NVIDIA GeForce GTX 1650", "AMD Radeon Vega 8", "AMD Radeon RX 6600M", etc.
-2. Si la VRAM dédiée est précisée (ex: 4Go, 6GB), ajoute-la proprement entre parenthèses à la fin : "(4 Go)".
-3. Supprime les mentions parasites : "(R)", "(TM)", "Laptop GPU", "Mobile GPU", "Controller", "Family", "with Max-Q Design" (remplacer par "Max-Q").
+Ta mission est UNIQUEMENT de formater et standardiser la carte graphique ou le NPU fourni selon les règles strictes suivantes :
+1. Format épuré : "Intel Iris Xe", "Intel UHD Graphics 620", "Intel NPU", "Intel AI Boost", "NVIDIA GeForce RTX 3050", "NVIDIA GeForce GTX 1650", "AMD Radeon Vega 8", "AMD Radeon RX 6600M", "AMD Ryzen AI NPU", etc.
+2. Si la carte est DÉDIÉE (NVIDIA RTX/GTX/MX/Quadro, AMD Radeon RX/Pro, Intel Arc A/B) et que la VRAM dédiée est précisée (ex: 4Go, 512Mo, 6GB), ajoute-la proprement entre parenthèses à la fin : "(4 Go)" ou "(512 Mo)".
+3. Si la carte est INTÉGRÉE (Intel Iris Xe, Intel UHD/HD, Intel Arc Graphics, AMD Radeon/Vega/780M, Apple M GPU) ou un NPU, spécifie UNIQUEMENT le nom de la carte/NPU seul, SANS aucune mention de VRAM ou mémoire partagée.
+4. Supprime les mentions parasites : "(R)", "(TM)", "Laptop GPU", "Mobile GPU", "Controller", "Family", "with Max-Q Design" (remplacer par "Max-Q").
 
 Renvoie UNIQUEMENT un objet JSON : {"graphics": "LA_CARTE_GRAPHIQUE_NORMALISEE"}
 Sans markdown, sans texte avant ou après.`;

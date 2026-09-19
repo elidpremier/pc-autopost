@@ -301,17 +301,28 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
 
   /* Carte graphique — priorité à l'étiquette GRAPHIQUE : */
   let graphics: string | null = null;
-  const gfxLabelled = labelValue(text, ['GRAPHIQUE', 'GRAPHICS', 'GPU', 'CARTE GRAPHIQUE']);
+  const gfxLabelled = labelValue(text, ['GRAPHIQUE', 'GRAPHICS', 'GPU', 'CARTE GRAPHIQUE', 'NPU', 'ACCELERATEUR IA']);
   if (gfxLabelled) {
     graphics = firstClause(cleanInline(gfxLabelled)).slice(0, 60);
   } else {
     const gfxM =
-      text.match(/GEFORCE\s?RTX\s?\d{2,4}\w*/i) ||
-      text.match(/GTX\s?\d{3}\w*/i) ||
-      text.match(/RTX\s?\d{2,4}\w*/i) ||
+      text.match(/GEFORCE\s?RTX\s?\d{2,4}\w*(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/GEFORCE\s?GTX\s?\d{3,4}\w*(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/GTX\s?\d{3,4}\w*(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/RTX\s?\d{2,4}\w*(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/QUADRO\s?\w+(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/RTX\s?A\d{3,4}\w*/i) ||
+      text.match(/RADEON\s?RX\s?\d{3,4}\w*(?:\s?\d{1,2}\s?(?:GO|GB|MO|MB))?/i) ||
+      text.match(/RADEON\s?(?:PRO|FIREPRO)\s?\w*/i) ||
       text.match(/IRIS\s?(?:XE|PLUS)/i) ||
       text.match(/AMD\s?VEGA\s?\d+/i) ||
-      text.match(/UHD\s?GRAPHICS/i) ||
+      text.match(/RADEON\s?(?:780M|680M|890M|880M|760M|660M)/i) ||
+      text.match(/INTEL\s?ARC\s?\w*/i) ||
+      text.match(/INTEL\s?AI\s?BOOST/i) ||
+      text.match(/INTEL\s?NPU/i) ||
+      text.match(/RYZEN\s?AI(?:\s?NPU)?/i) ||
+      text.match(/UHD\s?GRAPHICS(?:\s?\d{3,4})?/i) ||
+      text.match(/HD\s?GRAPHICS(?:\s?\d{3,4})?/i) ||
       text.match(/INTEL\s?GRAPHICS/i);
     if (gfxM) {
       graphics = gfxM[0].replace(/\s{2,}/g, ' ');

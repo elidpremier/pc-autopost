@@ -1251,7 +1251,10 @@ export default function RenderStudioModal({
           onClose={() => setShowFbModal(false)}
           computerId={computerId}
           generationId={null}
-          filename={`preview_${currentTemplate}_${currentFormat}.jpg`}
+          format={currentFormat}
+          template={currentTemplate}
+          colorPrimary={colorPrimary}
+          colorAccent={colorAccent}
           imageUrl={previewUrl}
           defaultCaption={activeTexts[textTab]}
         />

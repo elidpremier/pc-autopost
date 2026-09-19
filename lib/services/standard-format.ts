@@ -130,88 +130,197 @@ export function normalizeGraphics(raw: string): string {
   if (!s) return '';
 
   // Nettoyage des marques déposées et mentions parasites
-  s = s.replace(/\((?:r|tm)\)/gi, '');
+  s = s.replace(/\((?:r|tm)\)|®|™/gi, '');
   s = s.replace(/\b(?:laptop|mobile)?\s*gpu\b/gi, '');
   s = s.replace(/\b(?:graphics\s+)?(?:controller|display\s+adapter|family)\b/gi, '');
   s = s.replace(/\bwith\s+max-?q\s+design\b/gi, 'Max-Q');
   s = s.replace(/\s+/g, ' ').trim();
 
-  // Extraction VRAM (ex: "4GB", "4 Go", "4Go", "4 GB GDDR6", "4G", "(4 Go)")
-  // Éviter de confondre "8 Graphics" avec "8 G"
-  let vram = '';
-  const vramMatch = s.match(/(?:\(?\s*(\d{1,2})\s*(?:go|gb|gddr\d|g(?![a-z]))\s*(?:gddr\d)?\s*\)?)/i);
-  if (vramMatch && !/(?:rtx|gtx|mx|rx)\s*\d+/i.test(vramMatch[0])) {
-    vram = `${vramMatch[1]} Go`;
-    s = s.replace(vramMatch[0], ' ').replace(/\s+/g, ' ').trim();
+  // Extraction VRAM (Mo ou Go) si présente dans la chaîne
+  let vramStr: string | null = null;
+
+  // Chercher d'abord les Mo / MB (ex: 512 Mo, 512Mo, 256 MB)
+  const moMatch = s.match(/(?:\(?\s*(\d{2,4})\s*(?:mo|mb)\b\s*(?:vram|gddr\d?)?\s*\)?)/i);
+  if (moMatch) {
+    vramStr = `${moMatch[1]} Mo`;
+    s = s.replace(moMatch[0], ' ');
+  } else {
+    // Chercher les Go / GB / GDDR / G (ex: 4 Go, 4GB, 6 GB GDDR6, 16GB, 8G)
+    const goMatch = s.match(/(?:\(?\s*(\d{1,2}(?:[\.,]\d)?)\s*(?:go|gb|gddr[34567x]?|vram|g(?![a-z0-9]))\s*(?:gddr[34567x]?)?\s*\)?)/i);
+    if (goMatch) {
+      const valStr = goMatch[1].replace(',', '.');
+      vramStr = `${valStr} Go`;
+      s = s.replace(goMatch[0], ' ');
+    }
   }
 
   const isMaxQ = /\bmax-?q\b/i.test(s);
   s = s.replace(/\bmax-?q\b/gi, '').trim();
 
-  // Intel
-  if (/iris\s*xe/i.test(s)) {
-    s = 'Intel Iris Xe';
-  } else if (/iris\s*plus/i.test(s)) {
-    s = 'Intel Iris Plus';
-  } else if (/uhd\s*graphics/i.test(s) || /\buhd\b/i.test(s)) {
-    const model = s.match(/uhd(?:\s*graphics)?\s*(\d{3,4})?/i);
-    s = model && model[1] ? `Intel UHD Graphics ${model[1]}` : 'Intel UHD Graphics';
-  } else if (/hd\s*graphics/i.test(s) || (/\bhd\b/i.test(s) && /intel/i.test(s))) {
-    const model = s.match(/hd(?:\s*graphics)?\s*(\d{3,4})?/i);
-    s = model && model[1] ? `Intel HD Graphics ${model[1]}` : 'Intel HD Graphics';
-  } else if (/intel\s*graphics/i.test(s)) {
-    s = 'Intel Graphics';
-  } else if (/arc\s*(a\d{3}\w*)/i.test(s)) {
-    const arcMatch = s.match(/arc\s*(a\d{3}\w*)/i);
-    s = `Intel Arc ${arcMatch![1].toUpperCase()}`;
-  }
-  // NVIDIA
-  else if (/rtx\s*(\d{3,4}\w*)/i.test(s)) {
-    const rtxMatch = s.match(/rtx\s*(\d{3,4}(?:\s*ti)?)/i);
-    const modelStr = rtxMatch ? rtxMatch[1].toUpperCase().replace(/TI\b/, 'Ti') : '';
-    s = `NVIDIA GeForce RTX ${modelStr}`.trim();
-  } else if (/gtx\s*(\d{3,4}\w*)/i.test(s)) {
-    const gtxMatch = s.match(/gtx\s*(\d{3,4}(?:\s*ti)?)/i);
-    const modelStr = gtxMatch ? gtxMatch[1].toUpperCase().replace(/TI\b/, 'Ti') : '';
-    s = `NVIDIA GeForce GTX ${modelStr}`.trim();
-  } else if (/geforce\s*mx\s*(\d{3})/i.test(s) || /\bmx\s*(\d{3})/i.test(s)) {
-    const mxMatch = s.match(/mx\s*(\d{3})/i);
-    s = `NVIDIA GeForce MX${mxMatch ? mxMatch[1] : ''}`;
-  } else if (/quadro\s*(\w+)/i.test(s)) {
-    const qMatch = s.match(/quadro\s*(\w+)/i);
-    s = `NVIDIA Quadro ${qMatch ? qMatch[1].toUpperCase() : ''}`;
-  } else if (/nvidia|geforce/i.test(s)) {
-    const clean = s.replace(/nvidia\s*/gi, '').replace(/geforce\s*/gi, '').trim();
-    s = clean ? `NVIDIA GeForce ${clean}` : 'NVIDIA GeForce';
-  }
-  // AMD
-  else if (/vega\s*(\d+)/i.test(s)) {
-    const vMatch = s.match(/vega\s*(\d+)/i);
-    s = `AMD Radeon Vega ${vMatch ? vMatch[1] : ''}`.trim();
-  } else if (/rx\s*(\d{4}\w*)/i.test(s)) {
-    const rxMatch = s.match(/rx\s*(\d{4}\w*)/i);
-    s = `AMD Radeon RX ${rxMatch ? rxMatch[1].toUpperCase() : ''}`.trim();
-  } else if (/amd|radeon/i.test(s)) {
-    s = 'AMD Radeon Graphics';
-  }
-  // Apple Silicon
-  else if (/apple\s*m\d/i.test(s) || /\bm[1234]\s*(?:pro|max|ultra)?\b/i.test(s)) {
-    const mMatch = s.match(/m[1234](?:\s*(?:pro|max|ultra))?/i);
-    s = `Apple ${mMatch ? mMatch[0].toUpperCase() : 'M'} GPU`;
+  // Détection NPU (Intel AI Boost, Intel NPU, AMD Ryzen AI NPU, Qualcomm Hexagon NPU, Apple Neural Engine)
+  let npuName: string | null = null;
+  if (/intel\s*ai\s*boost|ai\s*boost/i.test(s)) {
+    npuName = 'Intel AI Boost';
+  } else if (/intel\s*npu|npu\s*intel|intel\s*neural\s*processing\s*unit/i.test(s)) {
+    npuName = 'Intel NPU';
+  } else if (/amd\s*ryzen\s*ai(?:\s*npu)?|ryzen\s*ai\s*npu|amd\s*xdna|amd\s*npu/i.test(s)) {
+    npuName = 'AMD Ryzen AI NPU';
+  } else if (/qualcomm\s*hexagon|snapdragon\s*npu|qualcomm\s*npu/i.test(s)) {
+    npuName = 'Qualcomm Hexagon NPU';
+  } else if (/apple\s*neural\s*engine|neural\s*engine/i.test(s)) {
+    npuName = 'Apple Neural Engine';
+  } else if (/\bnpu\b/i.test(s)) {
+    npuName = 'Intel NPU';
   }
 
-  if (isMaxQ && !s.includes('Max-Q')) {
-    s = `${s} Max-Q`;
+  // Nettoyer les termes NPU et CPU parasites de la chaîne pour isoler la partie GPU s'il y a les deux
+  if (npuName) {
+    s = s
+      .replace(
+        /intel\s*ai\s*boost|ai\s*boost|intel\s*npu|npu\s*intel|intel\s*neural\s*processing\s*unit|amd\s*ryzen\s*ai(?:\s*npu)?|ryzen\s*ai\s*npu|amd\s*xdna|amd\s*npu|qualcomm\s*hexagon|snapdragon\s*npu|apple\s*neural\s*engine|neural\s*engine|\bnpu\b/gi,
+        ''
+      )
+      .replace(/intel\s*core\s*(?:ultra\s*)?[i\d]*[-\w]*/gi, '')
+      .replace(/ryzen\s*\d+\s*[-\w]*/gi, '')
+      .replace(/[+&]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
-  s = s.replace(/\s+/g, ' ').trim();
+  let formattedGpu = '';
+  let isDedicated = false;
 
-  // Ajouter VRAM si présente
-  if (vram && !s.includes(vram)) {
-    s = `${s} (${vram})`;
+  if (s) {
+    // NVIDIA
+    if (/rtx\s*(\d{3,4}\w*)/i.test(s) || /rtx\s*(a\d{3,4}\w*|\d{4}\s*ada)/i.test(s)) {
+      const rtxAdaMatch = s.match(/rtx\s*(\d{4}\s*ada)/i);
+      const rtxAMatch = s.match(/rtx\s*(a\d{3,4}\w*)/i);
+      const rtxNumMatch = s.match(/rtx\s*(\d{3,4}(?:\s*(?:ti|super))?)/i);
+      if (rtxAdaMatch) {
+        formattedGpu = `NVIDIA RTX ${rtxAdaMatch[1].toUpperCase()}`;
+      } else if (rtxAMatch) {
+        formattedGpu = `NVIDIA RTX ${rtxAMatch[1].toUpperCase()}`;
+      } else if (rtxNumMatch) {
+        const modelStr = rtxNumMatch[1].toUpperCase().replace(/TI\b/, 'Ti').replace(/SUPER\b/, 'Super');
+        formattedGpu = `NVIDIA GeForce RTX ${modelStr}`;
+      } else {
+        formattedGpu = 'NVIDIA GeForce RTX';
+      }
+      isDedicated = true;
+    } else if (/gtx\s*(\d{3,4}\w*)/i.test(s)) {
+      const gtxMatch = s.match(/gtx\s*(\d{3,4}(?:\s*(?:ti|super))?)/i);
+      const modelStr = gtxMatch ? gtxMatch[1].toUpperCase().replace(/TI\b/, 'Ti').replace(/SUPER\b/, 'Super') : '';
+      formattedGpu = `NVIDIA GeForce GTX ${modelStr}`.trim();
+      isDedicated = true;
+    } else if (/geforce\s*mx\s*(\d{3})/i.test(s) || /\bmx\s*(\d{3})/i.test(s)) {
+      const mxMatch = s.match(/mx\s*(\d{3})/i);
+      formattedGpu = `NVIDIA GeForce MX${mxMatch ? mxMatch[1] : ''}`;
+      isDedicated = true;
+    } else if (/quadro\s*(\w+)/i.test(s)) {
+      const qMatch = s.match(/quadro\s*(\w+)/i);
+      formattedGpu = `NVIDIA Quadro ${qMatch ? qMatch[1].toUpperCase() : ''}`;
+      isDedicated = true;
+    } else if (/\bt\s*(\d{3,4})\b/i.test(s) && /nvidia|geforce/i.test(raw)) {
+      const tMatch = s.match(/\bt\s*(\d{3,4})\b/i);
+      formattedGpu = `NVIDIA T${tMatch![1]}`;
+      isDedicated = true;
+    } else if (/gt\s*(\d{3,4})/i.test(s) && /nvidia|geforce/i.test(raw)) {
+      const gtMatch = s.match(/gt\s*(\d{3,4})/i);
+      formattedGpu = `NVIDIA GeForce GT ${gtMatch![1]}`;
+      isDedicated = true;
+    } else if (/nvidia|geforce/i.test(s)) {
+      const clean = s.replace(/nvidia\s*/gi, '').replace(/geforce\s*/gi, '').trim();
+      formattedGpu = clean ? `NVIDIA GeForce ${clean}` : 'NVIDIA GeForce';
+      isDedicated = true;
+    }
+    // AMD
+    else if (/rx\s*(\d{4}(?:\s*(?:xtx|xt|gre|[ms]))?)/i.test(s)) {
+      const rxMatch = s.match(/rx\s*(\d{4}(?:\s*(?:xtx|xt|gre|[ms]))?)/i);
+      const modelStr = rxMatch ? rxMatch[1].toUpperCase().replace(/XTX\b/, 'XTX').replace(/XT\b/, 'XT').replace(/GRE\b/, 'GRE') : '';
+      formattedGpu = `AMD Radeon RX ${modelStr}`.trim();
+      isDedicated = true;
+    } else if (/radeon\s*pro\s*(\w+)/i.test(s) || /firepro\s*(\w+)/i.test(s)) {
+      const proMatch = s.match(/(?:radeon\s*pro|firepro)\s*(\w+)/i);
+      formattedGpu = `AMD Radeon Pro ${proMatch ? proMatch[1].toUpperCase() : ''}`.trim();
+      isDedicated = true;
+    } else if (/\b(780m|680m|890m|880m|760m|660m)\b/i.test(s)) {
+      const mMatch = s.match(/\b(780m|680m|890m|880m|760m|660m)\b/i);
+      formattedGpu = `AMD Radeon ${mMatch![1].toUpperCase()}`;
+      isDedicated = false;
+    } else if (/vega\s*(\d+)/i.test(s)) {
+      const vMatch = s.match(/vega\s*(\d+)/i);
+      formattedGpu = `AMD Radeon Vega ${vMatch ? vMatch[1] : ''}`.trim();
+      isDedicated = false;
+    } else if (/amd|radeon/i.test(s)) {
+      formattedGpu = 'AMD Radeon Graphics';
+      isDedicated = false;
+    }
+    // Intel
+    else if (/arc\s*(a\d{3}\w*|b\d{3}\w*)/i.test(s)) {
+      const arcMatch = s.match(/arc\s*(a\d{3}\w*|b\d{3}\w*)/i);
+      formattedGpu = `Intel Arc ${arcMatch![1].toUpperCase()}`;
+      isDedicated = true;
+    } else if (/arc\s*graphics/i.test(s)) {
+      formattedGpu = 'Intel Arc Graphics';
+      isDedicated = false;
+    } else if (/iris\s*xe/i.test(s)) {
+      formattedGpu = 'Intel Iris Xe';
+      isDedicated = false;
+    } else if (/iris\s*plus/i.test(s)) {
+      formattedGpu = 'Intel Iris Plus';
+      isDedicated = false;
+    } else if (/iris/i.test(s)) {
+      formattedGpu = 'Intel Iris';
+      isDedicated = false;
+    } else if (/uhd\s*graphics/i.test(s) || /\buhd\b/i.test(s)) {
+      const model = s.match(/uhd(?:\s*graphics)?\s*(\d{3,4})?/i);
+      formattedGpu = model && model[1] ? `Intel UHD Graphics ${model[1]}` : 'Intel UHD Graphics';
+      isDedicated = false;
+    } else if (/hd\s*graphics/i.test(s) || (/\bhd\b/i.test(s) && /intel/i.test(raw))) {
+      const model = s.match(/hd(?:\s*graphics)?\s*(\d{3,4})?/i);
+      formattedGpu = model && model[1] ? `Intel HD Graphics ${model[1]}` : 'Intel HD Graphics';
+      isDedicated = false;
+    } else if (/intel\s*graphics/i.test(s)) {
+      formattedGpu = 'Intel Graphics';
+      isDedicated = false;
+    }
+    // Apple Silicon
+    else if (/apple\s*m\d/i.test(s) || /\bm[1234]\s*(?:pro|max|ultra)?\b/i.test(s)) {
+      const mMatch = s.match(/m[1234](?:\s*(?:pro|max|ultra))?/i);
+      formattedGpu = `Apple ${mMatch ? mMatch[0].toUpperCase() : 'M'} GPU`;
+      isDedicated = false;
+    }
+    // Qualcomm
+    else if (/adreno|snapdragon/i.test(s)) {
+      formattedGpu = 'Qualcomm Adreno GPU';
+      isDedicated = false;
+    } else {
+      formattedGpu = s;
+      isDedicated = /\b(?:rtx|gtx|mx|rx|quadro|geforce)\b/i.test(s);
+    }
   }
 
-  return s;
+  if (isMaxQ && formattedGpu && !formattedGpu.includes('Max-Q')) {
+    formattedGpu = `${formattedGpu} Max-Q`;
+  }
+
+  // Règle VRAM : ajouter uniquement si la carte est dédiée et que la VRAM est présente
+  if (formattedGpu && isDedicated && vramStr && !formattedGpu.includes(vramStr)) {
+    formattedGpu = `${formattedGpu} (${vramStr})`;
+  }
+
+  // Combiner GPU + NPU si les deux existent, ou renvoyer le présent
+  if (formattedGpu && npuName) {
+    return `${formattedGpu} + ${npuName}`;
+  }
+  if (formattedGpu) {
+    return formattedGpu;
+  }
+  if (npuName) {
+    return npuName;
+  }
+
+  return raw.trim();
 }
 
 function normType(s: string): StorageType | null {

@@ -1,13 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import type { Format } from '@/lib/types';
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   computerId: string;
   generationId?: string | null;
-  filename: string;
+  /** Paramètres de rendu du visuel */
+  format: Format;
+  template: string;
+  colorPrimary?: string;
+  colorAccent?: string;
   imageUrl: string;
   defaultCaption: string;
 };
@@ -17,7 +22,10 @@ export default function FacebookPublishModal({
   onClose,
   computerId,
   generationId,
-  filename,
+  format,
+  template,
+  colorPrimary,
+  colorAccent,
   imageUrl,
   defaultCaption,
 }: Props) {
@@ -40,7 +48,10 @@ export default function FacebookPublishModal({
         body: JSON.stringify({
           computerId,
           generationId,
-          filename,
+          format,
+          template,
+          colorPrimary,
+          colorAccent,
           caption,
         }),
       });

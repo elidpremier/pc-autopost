@@ -197,9 +197,10 @@ export default function StockDashboard({ rows, settings, currentStatus, currentQ
       const gfx = (r.computer.graphics ?? '').toLowerCase();
       let matchGraphics = true;
       if (selectedGraphicsBrand === 'nvidia') matchGraphics = gfx.includes('nvidia') || gfx.includes('rtx') || gfx.includes('gtx') || gfx.includes('geforce') || gfx.includes('quadro');
-      else if (selectedGraphicsBrand === 'intel') matchGraphics = gfx.includes('intel') || gfx.includes('iris') || gfx.includes('uhd') || gfx.includes('hd graphics');
+      else if (selectedGraphicsBrand === 'intel') matchGraphics = (gfx.includes('intel') || gfx.includes('iris') || gfx.includes('uhd') || gfx.includes('hd graphics') || gfx.includes('arc')) && !gfx.includes('npu') && !gfx.includes('ai boost');
       else if (selectedGraphicsBrand === 'amd') matchGraphics = gfx.includes('amd') || gfx.includes('radeon') || gfx.includes('vega');
       else if (selectedGraphicsBrand === 'apple') matchGraphics = gfx.includes('apple') || gfx.includes('m1') || gfx.includes('m2') || gfx.includes('m3') || gfx.includes('m4');
+      else if (selectedGraphicsBrand === 'npu') matchGraphics = gfx.includes('npu') || gfx.includes('ai boost') || gfx.includes('neural') || gfx.includes('xdna') || gfx.includes('hexagon');
 
       const price = r.computer.price_amount ?? 0;
       const minP = minPrice !== '' ? Number(minPrice) : null;
@@ -675,10 +676,11 @@ export default function StockDashboard({ rows, settings, currentStatus, currentQ
                   className="input text-sm w-full"
                 >
                   <option value="">Toutes les cartes</option>
-                  <option value="nvidia">NVIDIA GeForce / RTX / GTX</option>
-                  <option value="intel">Intel Iris Xe / UHD / HD</option>
-                  <option value="amd">AMD Radeon / Vega</option>
+                  <option value="nvidia">NVIDIA GeForce / RTX / GTX / Quadro</option>
+                  <option value="intel">Intel Iris Xe / UHD / HD / Arc</option>
+                  <option value="amd">AMD Radeon / Vega / RX</option>
                   <option value="apple">Apple Silicon GPU</option>
+                  <option value="npu">NPU / Accélérateur IA (Intel AI Boost, etc.)</option>
                 </select>
               </div>
 
