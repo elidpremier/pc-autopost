@@ -1,6 +1,6 @@
 import Nav from '@/components/Nav';
 import StockDashboard from '@/components/StockDashboard';
-import { listComputers, listImages, getSettings } from '@/lib/db';
+import { listComputers, listImages, listPublications, getSettings } from '@/lib/db';
 import { checkGenerationReadiness } from '@/lib/services/generation-service';
 import type { PcStatus } from '@/lib/types';
 
@@ -19,6 +19,7 @@ export default function Dashboard({ searchParams }: Ctx) {
   const now = Date.now();
   const rows = items.map((c) => {
     const images = listImages(c.id);
+    const publications = listPublications(c.id);
     const thumb = images.find((i) => i.kind === 'cleaned') || images.find((i) => i.kind === 'main') || images.find((i) => i.kind === 'secondary');
     const daysAvailable = Math.floor((now - new Date(c.created_at).getTime()) / 86400000);
     const missingFields = checkGenerationReadiness(c);
@@ -29,6 +30,7 @@ export default function Dashboard({ searchParams }: Ctx) {
       daysAvailable,
       imageCount: images.length,
       missingFields,
+      publications,
     };
   });
 

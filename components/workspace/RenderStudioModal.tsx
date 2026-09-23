@@ -79,6 +79,8 @@ export default function RenderStudioModal({
   const [images, setImages] = useState<ImageRow[]>([]);
   const [cropRatio, setCropRatio] = useState<number>(0.32);
   const [isCropping, setIsCropping] = useState(false);
+  const [isCuttingOut, setIsCuttingOut] = useState(false);
+  const [cutoutStatus, setCutoutStatus] = useState<string | null>(null);
   const [cropSuccess, setCropSuccess] = useState<string | null>(null);
   const [cropTick, setCropTick] = useState<number>(0);
   const [extractedProposal, setExtractedProposal] = useState<{
@@ -258,6 +260,66 @@ export default function RenderStudioModal({
       alert(err instanceof Error ? err.message : 'Erreur');
     } finally {
       setIsCropping(false);
+    }
+  }
+
+  async function handleCutoutAI() {
+    const main = images.find((i) => i.kind === 'main');
+    if (!main) return;
+    const target = images.find((i) => i.kind === 'cleaned') ?? main;
+    try {
+      setIsCuttingOut(true);
+      setCutoutStatus('Connexion au service BiRefNet (serveur)…');
+      setCropSuccess(null);
+
+      const { removeBackgroundServer, removeBackgroundClient } = await import('@/lib/services/background-removal');
+
+      // ── Niveau 1 : API serveur BiRefNet_lite (recommandé) ─────────────────────────
+      try {
+        setCutoutStatus('BiRefNet_lite (serveur) — 1ère fois : téléchargement ~224 Mo…');
+        const result = await removeBackgroundServer(
+          computerId,
+          target.id,
+          (msg) => setCutoutStatus(msg)
+        );
+        if (result.images) setImages(result.images);
+        setCropTick((t) => t + 1);
+        setLoadingImg(true);
+        setImgTick((t) => t + 1);
+        setCropSuccess('✨ Détourage BiRefNet_lite réussi ! PC isolé sur fond transparent.');
+        setTimeout(() => setCropSuccess(null), 5000);
+        if (onUpdated) onUpdated();
+        return; // succès — on sort ici
+      } catch (serverErr) {
+        console.warn('[Détourage] Serveur BiRefNet échoué, passage RMBG navigateur :', serverErr);
+        setCutoutStatus('Serveur indisponible, passage RMBG-1.4 (navigateur)…');
+      }
+
+      // ── Niveau 2 : RMBG-1.4 client-side (fallback) ─────────────────────────
+      const imageSrc = `/api/images/${target.id}`;
+      const blob = await removeBackgroundClient(imageSrc, (msg) => setCutoutStatus(msg));
+
+      setCutoutStatus('Sauvegarde du PNG détouré…');
+      const formData = new FormData();
+      formData.append('file', blob, `cutout_${computerId}.png`);
+      formData.append('imageId', main.id);
+
+      const res = await fetch(`/api/computers/${computerId}/cutout`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors du détourage');
+
+      if (data.images) setImages(data.images);
+      setCropTick((t) => t + 1);
+      setLoadingImg(true);
+      setImgTick((t) => t + 1);
+      setCropSuccess('✨ Détourage RMBG-1.4 appliqué (qualité réduite — serveur BiRefNet requis pour meilleur résultat).');
+      setTimeout(() => setCropSuccess(null), 7000);
+      if (onUpdated) onUpdated();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur lors du détourage IA');
+    } finally {
+      setIsCuttingOut(false);
+      setCutoutStatus(null);
     }
   }
 
@@ -644,12 +706,12 @@ export default function RenderStudioModal({
                       </div>
                     )}
 
-                    {/* Actions de recadrage */}
+                    {/* Actions de recadrage & Détourage IA Option A */}
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                       <button
                         type="button"
                         onClick={handleReCrop}
-                        disabled={isCropping}
+                        disabled={isCropping || isCuttingOut}
                         className="rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 transition shadow disabled:opacity-50 flex items-center gap-1.5"
                       >
                         {isCropping ? 'Recadrage…' : '✂️ Appliquer ce recadrage'}
@@ -657,11 +719,29 @@ export default function RenderStudioModal({
                       <button
                         type="button"
                         onClick={handleReCropAndExtract}
-                        disabled={isCropping}
+                        disabled={isCropping || isCuttingOut}
                         className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-extrabold text-white hover:bg-blue-500 transition shadow disabled:opacity-50 flex items-center gap-1.5"
                         title="Recadre et relance l'OCR et l'IA sur la nouvelle zone de texte"
                       >
                         {isCropping ? 'Traitement…' : '🔍 Recadrer & Ré-extraire (OCR + IA)'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCutoutAI}
+                        disabled={isCropping || isCuttingOut}
+                        className="rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-3.5 py-2 text-xs font-extrabold text-white hover:brightness-110 transition shadow-lg disabled:opacity-50 flex items-center gap-1.5 ring-2 ring-purple-400/40"
+                        title="Détourage IA Automatique (Option A) — Supprime le fond pour isoler l'objet PC en PNG transparent"
+                      >
+                        {isCuttingOut ? (
+                          <>
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span>{cutoutStatus || 'Détourage IA…'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>✨ Détourer le PC (IA Option A)</span>
+                          </>
+                        )}
                       </button>
                       <button
                         type="button"

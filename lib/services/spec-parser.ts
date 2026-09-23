@@ -56,25 +56,32 @@ const BRANDS: [RegExp, string][] = [
 ];
 
 const MODEL_FAMILIES: [string, RegExp][] = [
-  ['Latitude', /LATITUDE[\s-]?([A-Z]?\d{3,4}\w?)/],
-  ['EliteBook', /ELITEBOOK[\s-]?([\w-]+)/],
-  ['ProBook', /PROBOOK[\s-]?([\w-]+)/],
-  ['ThinkPad', /THINK\s*PAD[\s-]?([\w-]+)/],
-  ['Vostro', /VOSTRO[\s-]?([\w-]+)/],
-  ['Inspiron', /INSPIRON[\s-]?([\w-]+)/],
-  ['OptiPlex', /OPTI\s*PLEX[\s-]?([\w-]+)/],
-  ['MacBook', /MAC\s*BOOK[\s-]?(AIR|PRO)[\s-]?(\d{4}\w?)/],
-  ['Spectre', /SPECTRE[\s-]?([\w-]+)/],
-  ['Pavilion', /PAVILION[\s-]?([\w-]+)/],
-  ['IdeaPad', /IDEAPAD[\s-]?([\w-]+)/],
-  ['Yoga', /YOGA[\s-]?(\w+)/],
-  ['ZenBook', /ZENBOOK[\s-]?([\w-]+)/],
-  ['VivoBook', /VIVOBOOK[\s-]?([\w-]+)/],
-  ['Chromebook', /CHROMEBOOK[\s-]?([\w-]+)/],
-  ['TUF Gaming', /TUF[\s-]?GAMING[\s-]?([\w-]+)/],
-  ['Precision', /PRECISION[\s-]?([\w-]+)/],
-  ['ZBook', /ZBOOK[\s-]?([\w-]+)/],
-  ['XPS', /XPS[\s-]?(\d{2,3})/],
+  ['Latitude', /LATITUDE[\s-]?([A-Z]?\d{3,4}\w?)/i],
+  ['EliteBook', /ELITE\s*BOOK[\s-]?([\w-]+)/i],
+  ['ProBook', /PRO\s*BOOK[\s-]?([\w-]+)/i],
+  ['ThinkBook', /THINK\s*BOOK[\s-]?([\w-]+)/i],
+  ['ThinkPad', /THINK\s*PAD[\s-]?([\w-]+)/i],
+  ['Vostro', /VOSTRO[\s-]?([\w-]+)/i],
+  ['Inspiron', /INSPIRON[\s-]?([\w-]+)/i],
+  ['OptiPlex', /OPTI\s*PLEX[\s-]?([\w-]+)/i],
+  ['MacBook', /MAC\s*BOOK[\s-]?(AIR|PRO)[\s-]?(\d{4}\w?)?/i],
+  ['Spectre', /SPECTRE[\s-]?([\w-]+)/i],
+  ['Pavilion', /PAVILION[\s-]?([\w-]+)/i],
+  ['IdeaPad', /IDEA\s*PAD[\s-]?([\w-]+)/i],
+  ['Yoga', /YOGA[\s-]?(\w+)/i],
+  ['ZenBook', /ZEN\s*BOOK[\s-]?([\w-]+)/i],
+  ['VivoBook', /VIVO\s*BOOK[\s-]?([\w-]+)/i],
+  ['Chromebook', /CHROME\s*BOOK[\s-]?([\w-]+)/i],
+  ['TUF Gaming', /TUF[\s-]?GAMING[\s-]?([\w-]+)/i],
+  ['ROG', /ROG[\s-]?([\w-]+)/i],
+  ['Precision', /PRECISION[\s-]?([\w-]+)/i],
+  ['ZBook', /Z\s*BOOK[\s-]?([\w-]+)/i],
+  ['XPS', /XPS[\s-]?(\d{2,3})/i],
+  ['Envy', /ENVY[\s-]?([\w-]+)/i],
+  ['Victus', /VICTUS[\s-]?([\w-]+)/i],
+  ['Omen', /OMEN[\s-]?([\w-]+)/i],
+  ['Legion', /LEGION[\s-]?([\w-]+)/i],
+  ['Surface', /SURFACE[\s-]?(LAPTOP|PRO|BOOK|GO)?[\s-]?(\d+)?/i],
 ];
 
 const STOPWORDS = new Set([
@@ -85,7 +92,7 @@ const STOPWORDS = new Set([
 
 function labelValue(text: string, labels: string[]): string | null {
   for (const lab of labels) {
-    const re = new RegExp(`${lab}\\s*[:\\-–]?\s*([^\n:]{2,80})`, 'i');
+    const re = new RegExp(`${lab}\\s*[:\\-–]?\\s*([^\\n:]{2,80})`, 'i');
     const m = text.match(re);
     if (m && m[1].trim()) return m[1].trim();
   }
@@ -94,6 +101,15 @@ function labelValue(text: string, labels: string[]): string | null {
 
 function cleanInline(s: string): string {
   return s.replace(/[|•·]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+/** Valide si une chaîne extraite d'une étiquette ressemble bien à un processeur */
+function isValidProcessorString(val: string): boolean {
+  if (!val || val.trim().length < 2) return false;
+  const s = val.toLowerCase();
+  const hasCpuKeyword = /(?:intel|core|i[3-9]|ryzen|amd|celeron|pentium|xeon|apple|m[1-4]|npu|snapdragon|athlon)/i.test(s);
+  const isPureRamOrStorage = /^\d{1,4}\s*(?:go|gb|ga|g0|mo|mb|ssd|hdd|ram|g\b)/i.test(s.trim());
+  return hasCpuKeyword && !isPureRamOrStorage;
 }
 
 /** première clause : coupe à la virgule / point-virgule (texte libre). */
@@ -146,11 +162,13 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
     for (const [family, re] of MODEL_FAMILIES) {
       const m = text.toUpperCase().match(re);
       if (m) {
+        let mVal = (m[1] || '').trim();
+        if (/^(CORE|PROC|CPU|INTEL|AMD)$/i.test(mVal)) mVal = '';
         if (family === 'MacBook') {
-          model = { value: `MacBook ${m[1]} ${m[2]}`.replace(/\s+/g, ' '), confidence: 0.8 };
+          model = { value: `MacBook ${mVal} ${m[2] || ''}`.replace(/\s+/g, ' ').trim(), confidence: 0.8 };
           break;
         }
-        model = { value: `${family} ${m[1]}`.replace(/\s{2,}/g, ' ').replace(/[-\s]{2,}/g, '-').trim(), confidence: 0.75 };
+        model = { value: `${family} ${mVal}`.replace(/\s{2,}/g, ' ').replace(/[-\s]{2,}/g, '-').trim(), confidence: 0.75 };
         break;
       }
     }
@@ -170,16 +188,28 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
   }
   found.model = model;
 
-  /* Processeur — PRIORITÉ à l'étiquette explicite PROCESSEUR : ... */
+  /* Texte sans le nom du modèle pour éviter que "1030" ou "5420" soit confondu avec le stockage */
+  const modelStr = model?.value ? (Array.isArray(model.value) ? model.value.join(' ') : model.value) : '';
+  const textWithoutModel = modelStr
+    ? text.replace(new RegExp(modelStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ')
+    : text;
+
+  /* Processeur — PRIORITÉ à l'étiquette explicite PROCESSEUR si valide */
   let processor: Found | null = null;
   const procLabelled = labelValue(text, ['PROCESSEUR', 'PROC', 'CPU']);
-  if (procLabelled) {
+  if (procLabelled && isValidProcessorString(procLabelled)) {
     // Valeur telle quelle, nettoyée — conserve "i7 13th (4 coeurs, 8 threads)"
     processor = { value: cleanInline(procLabelled).slice(0, 80), confidence: 0.9 };
   } else {
-    // Repli sur regex pour détection sans étiquette
+    // 1) Intel Core avec modèle 3-4 chiffres (ex: Core i5-1145G7, i7-8550U)
     const cpuM = text.match(/(intel\s+)?core\s?i([3-9])\s*[-]?\s*(\d{3,4})(\w*)/i);
+    // 2) AMD Ryzen avec modèle 2-4 chiffres (ex: Ryzen 5 5500U)
     const ryzM = text.match(/(amd\s+)?ryzen\s?([3-9])\s*[-]?\s*(\d{2,4})(\w*)/i);
+    // 3) Apple Silicon (ex: Apple M1 Pro, M2)
+    const appleM = text.match(/(apple\s+)?(m[1-4](?:\s+(?:pro|max|ultra))?)/i);
+    // 4) Intel / AMD sans modèle 4 chiffres mais avec génération (ex: Core i5 8ème, i7-11th)
+    const genOnlyM = text.match(/(?:intel\s+)?(?:core\s+)?i([3-9])\s*[-_ ]?\s*(\d{1,2})(?:e|ème|eme|th|er|st|nd|rd)?\s*(?:g[ée]n(?:[ée]ration)?|gen)?/i);
+
     if (cpuM) {
       processor = {
         value: `${cpuM[1] ? 'Intel ' : ''}Core i${cpuM[2]}-${cpuM[3]}${cpuM[4]}`.replace('-undefined', ''),
@@ -187,6 +217,10 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
       };
     } else if (ryzM) {
       processor = { value: `${ryzM[1] ? 'AMD ' : ''}Ryzen ${ryzM[2]} ${ryzM[3]}${ryzM[4]}`.trim(), confidence: 0.85 };
+    } else if (appleM) {
+      processor = { value: `Apple ${appleM[2].toUpperCase()}`.trim(), confidence: 0.9 };
+    } else if (genOnlyM) {
+      processor = { value: `Core i${genOnlyM[1]}-${genOnlyM[2]}th`, confidence: 0.8 };
     } else {
       const bare = text.match(/\bi([3-9])\s*[-]?\s*(\d{3,4})(\w*)/i);
       if (bare) {
@@ -196,7 +230,7 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
     // Ajout génération si détectée
     const genM = text.match(/(\d{1,2})(?:er|e|ème|eme)\s*g[ée]n/i);
     if (processor && genM) {
-      const alreadyMentioned = new RegExp(`${genM[1]}\\s*[eéè]?\\s*g[ée]n`, 'i').test(processor.value as string);
+      const alreadyMentioned = new RegExp(`${genM[1]}\\s*[eéè]?\\s*g[ée]n|${genM[1]}th`, 'i').test(processor.value as string);
       if (!alreadyMentioned) {
         processor = { ...processor, value: `${processor.value} (${genM[1]}e génération)`, confidence: Math.min(processor.confidence, 0.7) };
       }
@@ -207,45 +241,67 @@ export function parseSpecText(raw: string, defaultCurrency: string): ParseResult
   const coresM = text.match(/(\d)\s*(?:C[OÖ]URS?|CORES)/i);
   found.cores = coresM ? { value: String(coresM[1]), confidence: 0.7 } : null;
 
-  /* RAM — bornes de chiffres pour ne pas confondre « 512 Go » et « 16 Go » */
+  /* RAM — bornes de chiffres et tolérance OCR (Go, Ga, G0, GB, G) */
   let ramGb: number | null = null;
-  const ramLabel = labelValue(text, ['RAM', 'MEMOIRE', 'MÉMOIRE']);
+  const ramLabel = labelValue(textWithoutModel, ['RAM', 'MEMOIRE', 'MÉMOIRE']);
   if (ramLabel) {
-    const m = ramLabel.match(/(?<!\d)(\d{1,2})(?!\d)\s*(?:GO|GB|G\b)/i);
+    const m = ramLabel.match(/(?<!\d)(\d{1,3})(?!\d)\s*(?:GO|GB|GA|G0|G\b|G\/)?/i);
     if (m) ramGb = parseNumber(m[1]);
   }
   if (ramGb === null) {
     const m =
-      text.match(/(?<!\d)(\d{1,2})(?!\d)\s*(?:GO|GB)\s*(?:DE\s*)?RAM/i) ||
-      text.match(/RAM\s*(?:DE\s*)?(?<!\d)(\d{1,2})(?!\d)\s*(?:GO|GB|G\b)/i);
+      textWithoutModel.match(/(?<!\d)(\d{1,3})(?!\d)\s*(?:GO|GB|GA|G0|G\b|G\/)?\s*(?:DE\s*)?RAM\b/i) ||
+      textWithoutModel.match(/\bRAM\s*(?:DE\s*)?:?\s*(?<!\d)(\d{1,3})(?!\d)\s*(?:GO|GB|GA|G0|G\b)?/i) ||
+      textWithoutModel.match(/(?<!\d)(4|8|12|16|24|32|64|128)\s*(?:GO|GB|GA|G0)\b/i);
     if (m) ramGb = parseNumber(m[1]);
   }
-  if (ramGb !== null && (ramGb < 1 || ramGb > 128)) ramGb = null;
+  if (ramGb !== null && (ramGb < 1 || ramGb > 256)) ramGb = null;
   found.ram_gb = ramGb !== null ? { value: String(ramGb), confidence: 0.85 } : null;
 
-  /* Stockage */
+  /* Stockage — support To/TB, SSD 512, tolérance OCR */
   let cap: number | null = null;
   let stype: StorageType | null = null;
-  // Ne chercher "SSD" comme label qu'au début de ligne ou après deux-points
-  const stLabelRaw = labelValue(text, ['STOCKAGE', 'DISQUE']);
-  const stLabel = stLabelRaw ?? null;
-  const pool = stLabel ?? text;
-  // type-avant-capacité : "SSD 512Go"
-  const typeFirst = pool.match(/(SSD|HDD|NVME|EMMC)[^\d]{0,14}(\d{3,4})\s*(?:GO|GB)/i);
-  // capacité-avant-type : "512Go SSD" (aussi "512Go, SSD")
-  const capFirst = pool.match(/(\d{3,4})\s*(?:GO|GB)[\s,.-]{0,6}(SSD|HDD|NVME|EMMC)/i);
-  const capOnly = pool.match(/(\d{3,4})\s*(?:GO|GB)/i);
-  if (typeFirst) {
-    cap = parseNumber(typeFirst[2]);
-    stype = typeFirst[1].toUpperCase() as StorageType;
-  } else if (capFirst) {
-    cap = parseNumber(capFirst[1]);
-    stype = capFirst[2].toUpperCase() as StorageType;
-  } else if (capOnly) {
-    cap = parseNumber(capOnly[1]);
+  const stLabelRaw = labelValue(textWithoutModel, ['STOCKAGE', 'DISQUE']);
+  const pool = stLabelRaw ? `${stLabelRaw}\n${textWithoutModel}` : textWithoutModel;
+
+  // 1) Terabytes (1 To / 1 TB -> 1024 Go)
+  const tbMatch = pool.match(/(\d{1,2})\s*(?:TO|TB)\s*(SSD|HDD|NVME|EMMC)?/i) ||
+                  pool.match(/(SSD|HDD|NVME|EMMC)\s*(\d{1,2})\s*(?:TO|TB)/i);
+  if (tbMatch) {
+    const rawNum = parseNumber(tbMatch[1] || tbMatch[2]);
+    if (rawNum) cap = rawNum * 1024;
+    const typeStr = (tbMatch[1] && isNaN(Number(tbMatch[1])) ? tbMatch[1] : tbMatch[2]) || '';
+    if (typeStr && /SSD|HDD|NVME|EMMC/i.test(typeStr)) stype = typeStr.toUpperCase() as StorageType;
   }
-  // Validation plage réaliste (32 Go — 8 To)
-  if (cap !== null && (cap < 32 || cap > 8192)) cap = null;
+
+  if (cap === null) {
+    // type-avant-capacité : "SSD 512Go", "SSD 512"
+    const typeFirst = pool.match(/(SSD|HDD|NVME|EMMC)[^\d]{0,14}(\d{3,4})\s*(?:GO|GB|GA|G0|G\b)?/i);
+    // capacité-avant-type : "512Go SSD", "512 SSD", "512Ga SSD"
+    const capFirst = pool.match(/(\d{3,4})\s*(?:GO|GB|GA|G0|G\b)?[\s,.-]{0,6}(SSD|HDD|NVME|EMMC)/i);
+    const capOnly = pool.match(/(\d{3,4})\s*(?:GO|GB|GA|G0)\b/i);
+
+    if (typeFirst) {
+      cap = parseNumber(typeFirst[2]);
+      stype = typeFirst[1].toUpperCase() as StorageType;
+    } else if (capFirst) {
+      cap = parseNumber(capFirst[1]);
+      stype = capFirst[2].toUpperCase() as StorageType;
+    } else if (capOnly) {
+      cap = parseNumber(capOnly[1]);
+    }
+  }
+
+  // Correction OCR fréquente : ex. 1512Go -> 512Go, 1256Go -> 256Go
+  if (cap !== null) {
+    if (cap === 1512) cap = 512;
+    if (cap === 1256) cap = 256;
+    if (cap === 1128) cap = 128;
+    if (cap < 32 || cap > 8192) cap = null;
+  }
+  if (!stype && /SSD|NVME/i.test(pool)) stype = 'SSD';
+  else if (!stype && /HDD|DISQUE DURE/i.test(pool)) stype = 'HDD';
+
   found.storage_capacity_gb = cap !== null ? { value: String(cap), confidence: 0.85 } : null;
   found.storage_type = stype ? { value: stype, confidence: 0.8 } : null;
 

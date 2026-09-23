@@ -8,15 +8,22 @@
     "prebuild": "node scripts/check-env.js",
     "prestart": "node scripts/check-env.js",
     "dev": "next dev -H 0.0.0.0 -p 3000",
+    "restart": "fuser -k 3000/tcp 2>/dev/null; rm -rf .next; npm run dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "make-sample": "tsx scripts/make-sample.ts",
     "seed": "tsx scripts/seed.ts",
-    "test-pipeline": "tsx scripts/test-pipeline.ts"
+    "test-pipeline": "tsx scripts/test-pipeline.ts",
+    "generate-icon": "node scripts/generate-icon.js",
+    "install-desktop": "bash scripts/install-desktop.sh",
+    "launcher": "bash bin/pc-autopost"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.0",
+    "@imgly/background-removal": "^1.7.0",
     "better-sqlite3": "^12.11.1",
     "next": "^14.2.5",
+    "onnxruntime-web": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.33.5",

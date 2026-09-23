@@ -131,6 +131,12 @@ function applyFieldsToComputer(
     if (Array.isArray(a) && a.length > 0) patch.accessories = a;
   }
 
+  const currentComp = getComputer(computerId);
+  if (currentComp && currentComp.price_amount && currentComp.price_amount > 0) {
+    // Si un prix a déjà été fixé manuellement par le vendeur, ne jamais l'écraser lors d'une ré-extraction OCR/IA
+    delete patch.price_amount;
+  }
+
   if (Object.keys(patch).length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updateComputer(computerId, patch as any);

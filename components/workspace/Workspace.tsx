@@ -450,6 +450,7 @@ Je vous propose le PC suivant :
           computerId={id}
           extractions={extractions}
           statusHistory={statusHistory}
+          publications={publications}
           onDelete={deleteProduct}
         />
       </div>

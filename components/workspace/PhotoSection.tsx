@@ -77,6 +77,56 @@ export default function PhotoSection({ computerId, images, onImagesChange, extra
     setBusy('');
   }
 
+  async function runCutoutAI() {
+    if (!main) return;
+    const target = cleaned ?? main;
+    setBusy('extract');
+    setError('');
+    setInfo('Connexion au service BiRefNet (serveur)…');
+    try {
+      const { removeBackgroundServer, removeBackgroundClient } = await import('@/lib/services/background-removal');
+
+      // ── Niveau 1 : API serveur BiRefNet_lite ──────────────────────────
+      try {
+        setInfo('BiRefNet_lite (serveur) — 1ère fois : téléchargement ~224 Mo…');
+        const result = await removeBackgroundServer(
+          computerId,
+          target.id,
+          (msg) => setInfo(msg)
+        );
+        onImagesChange(result.images as ImageRow[]);
+        setView('cleaned');
+        setInfo('✨ Détourage BiRefNet_lite réussi ! PC isolé sur fond transparent.');
+        return;
+      } catch (serverErr) {
+        console.warn('[Détourage] Serveur BiRefNet échoué :', serverErr);
+        setInfo('Serveur indisponible, passage RMBG-1.4 (navigateur)…');
+      }
+
+      // ── Niveau 2 : RMBG-1.4 client-side (fallback) ────────────────────
+      const imageSrc = `/api/images/${target.id}`;
+      const blob = await removeBackgroundClient(imageSrc, (msg) => setInfo(msg));
+
+      setInfo('Sauvegarde du PNG détouré…');
+      const formData = new FormData();
+      formData.append('file', blob, `cutout_${computerId}.png`);
+      formData.append('imageId', main.id);
+
+      const res = await fetch(`/api/computers/${computerId}/cutout`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors du détourage');
+
+      onImagesChange(data.images as ImageRow[]);
+      setView('cleaned');
+      setInfo('✨ Détourage RMBG-1.4 appliqué (qualité réduite — BiRefNet serveur recommandé).');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur détourage IA');
+      setInfo('');
+    } finally {
+      setBusy('');
+    }
+  }
+
   return (
     <section className="card p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -147,6 +197,14 @@ export default function PhotoSection({ computerId, images, onImagesChange, extra
           <div className="flex flex-wrap gap-2">
             <button onClick={() => runExtract({ imageId: main.id, cropRatio: ratio })} disabled={busy !== ''} className="btn-primary">
               {busy === 'extract' ? 'Extraction…' : '🔍 Extraire la fiche (OCR)'}
+            </button>
+            <button
+              onClick={runCutoutAI}
+              disabled={busy !== ''}
+              className="chip bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:brightness-110 shadow font-bold"
+              title="Détourage IA Automatique (Option A) — isole l'objet PC du fond"
+            >
+              ✨ Détourer le PC (IA Option A)
             </button>
             <button onClick={() => mainInput.current?.click()} disabled={busy !== ''} className="btn-ghost">
               Changer la photo

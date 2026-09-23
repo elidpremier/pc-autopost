@@ -88,7 +88,7 @@ export async function publishToFacebookPage(params: {
   }
 
   try {
-    const blob = new Blob([fileBuffer], { type: 'image/jpeg' });
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: 'image/jpeg' });
 
     const formData = new FormData();
     formData.append('access_token', cleanToken);

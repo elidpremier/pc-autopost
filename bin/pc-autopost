@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+
+# ==============================================================================
+# PC AutoPost — Script de lancement autonome et reproductible
+# ==============================================================================
+
+set -e
+
+# Détermine le dossier racine du projet
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+cd "${PROJECT_DIR}"
+
+APP_NAME="PC AutoPost"
+PORT=3000
+URL="http://localhost:${PORT}"
+PID_FILE="${PROJECT_DIR}/.pc-autopost.pid"
+LOG_FILE="${PROJECT_DIR}/.pc-autopost.log"
+
+# Fonction d'affichage des erreurs avec notification Desktop si nécessaire
+show_error() {
+  local msg="$1"
+  echo "❌ ${msg}"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -u critical -i error "${APP_NAME} — Erreur" "${msg}"
+  elif command -v zenity >/dev/null 2>&1; then
+    zenity --error --title="${APP_NAME}" --text="${msg}" 2>/dev/null &
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# 1. Détection et chargement de l'environnement Node.js (NVM, profile, etc.)
+# ------------------------------------------------------------------------------
+if ! command -v node >/dev/null 2>&1; then
+  # Tente de charger NVM s'il existe
+  if [ -s "${HOME}/.nvm/nvm.sh" ]; then
+    export NVM_DIR="${HOME}/.nvm"
+    . "${HOME}/.nvm/nvm.sh" >/dev/null 2>&1 || true
+  fi
+  
+  # Charge le profil utilisateur
+  if [ -s "${HOME}/.profile" ]; then
+    . "${HOME}/.profile" >/dev/null 2>&1 || true
+  fi
+  if [ -s "${HOME}/.bashrc" ]; then
+    . "${HOME}/.bashrc" >/dev/null 2>&1 || true
+  fi
+fi
+
+# Recherche manuelle de secours pour Node.js dans les dossiers NVM / N / FNM / systeme
+if ! command -v node >/dev/null 2>&1; then
+  for NODE_BIN_DIR in \
+    "${HOME}"/.nvm/versions/node/v*/bin \
+    "${HOME}"/.n/bin \
+    "${HOME}"/.fnm/current/bin \
+    "${HOME}"/.volta/bin \
+    "${HOME}"/.asdf/shims \
+    /usr/local/bin \
+    /usr/bin; do
+    if [ -x "${NODE_BIN_DIR}/node" ]; then
+      export PATH="${NODE_BIN_DIR}:${PATH}"
+      break
+    fi
+  done
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  show_error "Node.js n'a pas été trouvé. Veuillez installer Node.js (v20 LTS recommandé)."
+  exit 1
+fi
+
+# S'assurer que le PATH de node est exporté
+NODE_DIR_PATH="$(dirname "$(command -v node)")"
+export PATH="${NODE_DIR_PATH}:${PATH}"
+
+echo "🚀 Lancement de ${APP_NAME}..."
+
+# ------------------------------------------------------------------------------
+# 2. Vérification des dépendances (node_modules)
+# ------------------------------------------------------------------------------
+if [ ! -d "${PROJECT_DIR}/node_modules" ] || [ ! -f "${PROJECT_DIR}/node_modules/next/package.json" ]; then
+  echo "📦 Installation des dépendances (npm install)..."
+  npm install || { show_error "Échec de npm install"; exit 1; }
+fi
+
+# ------------------------------------------------------------------------------
+# 3. Vérification du build Next.js (.next/BUILD_ID)
+# ------------------------------------------------------------------------------
+if [ ! -f "${PROJECT_DIR}/.next/BUILD_ID" ]; then
+  echo "🔨 Compilation de l'application en mode production (npm run build)..."
+  npm run build || { show_error "Échec de la compilation de l'application (npm run build)"; exit 1; }
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Gestion du serveur HTTP
+# ------------------------------------------------------------------------------
+is_server_running() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -s --head --request GET "${URL}" | grep -q "200 OK\|302 Found\|304 Not Modified\|404 Not Found"
+  else
+    node -e "const http = require('http'); http.get('${URL}', (r) => process.exit(0)).on('error', () => process.exit(1));" >/dev/null 2>&1
+  fi
+}
+
+if is_server_running; then
+  echo "✅ Le serveur ${APP_NAME} tourne déjà sur ${URL}."
+else
+  echo "⚡ Démarrage du serveur ${APP_NAME} (npm start)..."
+  nohup npm start > "${LOG_FILE}" 2>&1 &
+  SERVER_PID=$!
+  disown $SERVER_PID 2>/dev/null || true
+  echo "${SERVER_PID}" > "${PID_FILE}"
+
+  echo "⏳ Attente du démarrage du serveur..."
+  MAX_ATTEMPTS=25
+  ATTEMPT=0
+  until is_server_running || [ ${ATTEMPT} -eq ${MAX_ATTEMPTS} ]; do
+    sleep 0.8
+    ATTEMPT=$((ATTEMPT + 1))
+  done
+
+  if is_server_running; then
+    echo "✅ Serveur démarré avec succès sur ${URL}"
+  else
+    echo "⚠️ Le serveur prend du temps à démarrer. Tentative d'ouverture du navigateur..."
+  fi
+fi
+
+# ------------------------------------------------------------------------------
+# 5. Ouverture du navigateur
+# ------------------------------------------------------------------------------
+open_browser() {
+  # Recherche d'un navigateur avec support --app
+  for BROWSER_CMD in "google-chrome" "google-chrome-stable" "chromium-browser" "chromium" "brave-browser" "microsoft-edge-stable"; do
+    if command -v "${BROWSER_CMD}" >/dev/null 2>&1; then
+      echo "🌐 Ouverture via ${BROWSER_CMD} en mode application..."
+      "${BROWSER_CMD}" "--app=${URL}" >/dev/null 2>&1 &
+      return 0
+    fi
+  done
+
+  # Fallback sur xdg-open par défaut
+  if command -v xdg-open >/dev/null 2>&1; then
+    echo "🌐 Ouverture du navigateur par défaut..."
+    xdg-open "${URL}" >/dev/null 2>&1 &
+    return 0
+  fi
+
+  show_error "Aucun navigateur web détecté pour ouvrir ${URL}."
+}
+
+open_browser
+
+echo "🎉 ${APP_NAME} est opérationnel !"

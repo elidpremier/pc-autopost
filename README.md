@@ -24,6 +24,10 @@ npm run dev        # http://localhost:3000
 # — ou mode production —
 npm run build
 npm start
+
+# — ou via l'exécutable autonome / menu système Linux —
+npm run install-desktop   # Ajoute "PC AutoPost" dans le menu d'applications Linux avec son icône
+./bin/pc-autopost          # Lance l'exécutable autonome directement
 ```
 
 Données : SQLite dans `data/pc-autopost.sqlite`, fichiers dans `uploads/` (originales, nettoyées, secondaires, générés, logos). Aucun service externe requis.

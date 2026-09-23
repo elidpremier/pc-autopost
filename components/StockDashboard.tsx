@@ -16,6 +16,7 @@ type StockItemRow = {
   daysAvailable: number;
   imageCount: number;
   missingFields: string[];
+  publications?: import('@/lib/types').PublicationRow[];
 };
 
 type Props = {
@@ -770,7 +771,7 @@ export default function StockDashboard({ rows, settings, currentStatus, currentQ
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredRows.map(({ computer: c, thumb, daysAvailable, imageCount, missingFields }) => {
+          {filteredRows.map(({ computer: c, thumb, daysAvailable, imageCount, missingFields, publications }) => {
             const isSelected = selectedIds.includes(c.id);
             const isReady = missingFields.length === 0 && imageCount > 0;
 
@@ -863,15 +864,22 @@ export default function StockDashboard({ rows, settings, currentStatus, currentQ
                         🎮 {c.graphics}
                       </span>
                     ) : null}
-                    {c.ports && c.ports.length > 0 ? (
-                      <span className="rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5">
-                        🔌 {c.ports.join(', ')}
-                      </span>
-                    ) : null}
                     <span className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">📷 {imageCount}</span>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {/* Date de création & Date de publication */}
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1 text-[11px] pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-400">
+                      📅 Ajouté le {new Date(c.created_at).toLocaleDateString('fr-FR')}
+                    </span>
+                    {publications && publications.length > 0 ? (
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                        📢 Publié le {publications[0].published_at}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between pt-1.5">
                     <span className="text-xs font-bold text-blue-600 group-hover:underline dark:text-blue-400 flex items-center gap-1">
                       🎨 Studio de Rendu & Légende ➔
                     </span>

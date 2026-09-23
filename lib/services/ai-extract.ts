@@ -10,6 +10,12 @@ const SYSTEM_PROMPT = `Tu es un extracteur de fiches techniques d'ordinateurs.
 DÉBUTE ta réponse directement par { et termine par }. Ne mets rien avant ni après.
 Utilise null pour les valeurs absentes. N'invente JAMAIS une valeur absente.
 
+Règles marque & modèle (CRITIQUE) :
+- "marque" : La marque exacte (ex: "HP", "Dell", "Lenovo", "Acer", "Asus", "Apple", "MSI", "Samsung", "Microsoft", "Toshiba"). NE PAS inclure la gamme ou le modèle dans la marque.
+- "modele" : Le MODÈLE OU LA GAMME commerciale UNIQUEMENT (ex: "ThinkBook 15", "ThinkBook", "ThinkPad X1 Carbon", "Latitude 5420", "EliteBook 840 G8", "Inspiron 15", "Pavilion 14", "Spectre x360", "MacBook Pro 14").
+- Ne JAMAIS inclure le processeur (ex: "core i5", "i7", "11ème génération", "8th", "Ryzen", "2.42GHz", "processeur") ni aucune caractéristique technique (RAM, SSD, Go, Hz) dans le champ "modele" !
+- Exemple : Si le texte dit "Lenovo ThinkBook core i5 11ème génération", alors "marque" est "Lenovo", "modele" est "ThinkBook 15" (ou "ThinkBook") et "processeur" est "i5-11th".
+
 Règles processeur :
 - Format standard et uniformisé pour "processeur".
 - Lorsque le modèle exact n'est pas précisé mais que la génération est indiquée, utilise la forme abrégée : "i3-Xth", "i5-Xth", "i7-Xth", "i9-Xth" (ex: "i7-11th", "i5-10th", "i5-8th").
@@ -89,10 +95,12 @@ function extractJsonObjects(text: string): string[] {
 export function getLlmConfig(): LlmConfig | null {
   const key = process.env.PC_AUTOPOST_LLM_API_KEY;
   if (!key) return null;
+  const url = process.env.PC_AUTOPOST_LLM_API_URL || 'https://api.openai.com/v1/chat/completions';
+  const defaultModel = url.includes('api.groq.com') ? 'openai/gpt-oss-20b' : 'gpt-4o-mini';
   return {
     key,
-    url: process.env.PC_AUTOPOST_LLM_API_URL || 'https://api.openai.com/v1/chat/completions',
-    model: process.env.PC_AUTOPOST_LLM_MODEL || 'gpt-4o-mini',
+    url,
+    model: process.env.PC_AUTOPOST_LLM_MODEL || defaultModel,
   };
 }
 
@@ -130,9 +138,8 @@ export async function llmExtract(rawText: string, defaultCurrency: string): Prom
     const requestBody: Record<string, unknown> = {
       model: cfg.model,
       temperature: 0,
-      // Le quota gratuit Groq impose ici une limite de 1000 tokens/minute.
-      // 1200 tokens est nécessaire pour couvrir tous les champs (ecran, ports, etc.).
-      max_tokens: 1200,
+      // 3000 tokens nécessaire pour couvrir le raisonnement + la réponse JSON complète
+      max_tokens: 3000,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: rawText },

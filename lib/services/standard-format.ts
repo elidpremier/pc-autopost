@@ -74,6 +74,19 @@ function toList(v: unknown): string[] {
     .filter(Boolean);
 }
 
+export function normalizeModelName(raw: string): string {
+  let s = raw.trim();
+  if (!s) return '';
+
+  // Supprime les processeurs, générations et fréquences parasites du nom du modèle
+  s = s.replace(/\b(?:intel|core|amd|ryzen|proc(?:esseur)?|cpu|g[ée]n(?:[ée]ration)?|gen|ghz|mhz|coeurs?|cores?|threads?)\b.*/gi, '');
+  s = s.replace(/\bi[3-9]\b.*/gi, '');
+  s = s.replace(/\b\d{1,2}(?:e|ème|eme|th|er|st|nd|rd)?\s*(?:g[ée]n|gen)?\b.*/gi, '');
+  s = s.replace(/\s+/g, ' ').replace(/[-\s]{2,}/g, '-').trim();
+
+  return s;
+}
+
 export function normalizeProcessor(raw: string): string {
   let s = raw.trim();
   if (!s) return '';
@@ -452,7 +465,8 @@ function parseJsonStandard(t: string, defaultCurrency: string): StandardParseRes
   const status = mapStatus(statusRaw);
 
   add('brand', 'Marque', toStr(get('marque', 'brand')) || null);
-  add('model', 'Modèle', toStr(get('modele', 'mode', 'model')) || null);
+  const rawModel = toStr(get('modele', 'mode', 'model'));
+  add('model', 'Modèle', rawModel ? normalizeModelName(rawModel) : null);
   const rawProcessor = toStr(get('processeur', 'processor', 'cpu'));
   add('processor', 'Processeur', rawProcessor ? normalizeProcessor(rawProcessor) : null);
   add('ram_gb', 'RAM (Go)', toNum(get('ram_go', 'ram', 'ram_gb', 'ramGb')));

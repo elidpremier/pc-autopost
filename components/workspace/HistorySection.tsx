@@ -9,10 +9,11 @@ type Props = {
   computerId: string;
   extractions: ExtractionRow[];
   statusHistory: StatusHistoryRow[];
+  publications?: import('@/lib/types').PublicationRow[];
   onDelete: () => Promise<void>;
 };
 
-export default function HistorySection({ computerId, extractions, statusHistory, onDelete }: Props) {
+export default function HistorySection({ computerId, extractions, statusHistory, publications = [], onDelete }: Props) {
   const router = useRouter();
   const [busyDelete, setBusyDelete] = useState(false);
   void computerId;
@@ -20,7 +21,7 @@ export default function HistorySection({ computerId, extractions, statusHistory,
   return (
     <section className="card p-5">
       <h2 className="mb-4 font-semibold">🗂️ Historique & données conservées</h2>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Extractions ({extractions.length})</h3>
           {extractions.length === 0 ? (
@@ -28,7 +29,7 @@ export default function HistorySection({ computerId, extractions, statusHistory,
           ) : (
             <ul className="space-y-1.5 text-sm">
               {extractions.slice(0, 8).map((e) => (
-                <li key={e.id} className="rounded bg-slate-50 px-2.5 py-1.5">
+                <li key={e.id} className="rounded bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
                       {e.provider === 'tesseract' ? 'OCR' : e.provider === 'standard_json' ? 'Import JSON' : e.provider === 'llm' ? 'Import IA' : 'Import texte'}
@@ -42,13 +43,37 @@ export default function HistorySection({ computerId, extractions, statusHistory,
           )}
         </div>
         <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Publications ({publications.length})</h3>
+          {publications.length === 0 ? (
+            <p className="text-sm text-slate-400">Aucune publication enregistrée.</p>
+          ) : (
+            <ul className="space-y-1.5 text-sm">
+              {publications.slice(0, 8).map((p) => (
+                <li key={p.id} className="rounded bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/40 px-2.5 py-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-emerald-800 dark:text-emerald-300">
+                      📢 {p.platform === 'facebook' ? 'Facebook' : p.platform}
+                    </span>
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">{p.published_at}</span>
+                  </div>
+                  {p.link ? (
+                    <a href={p.link} target="_blank" rel="noreferrer" className="mt-0.5 inline-block text-[11px] font-semibold text-blue-600 hover:underline">
+                      Voir la publication ↗
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Changements de statut</h3>
           {statusHistory.length === 0 ? (
             <p className="text-sm text-slate-400">Aucun changement enregistré.</p>
           ) : (
             <ul className="space-y-1.5 text-sm">
               {statusHistory.slice(0, 8).map((h) => (
-                <li key={h.id} className="rounded bg-slate-50 px-2.5 py-1.5">
+                <li key={h.id} className="rounded bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5">
                   <span className="font-medium">
                     {h.from_status ? STATUS_LABELS[h.from_status] : 'Création'} → {STATUS_LABELS[h.to_status]}
                   </span>
