@@ -266,17 +266,17 @@ export default function RenderStudioModal({
   async function handleCutoutAI() {
     const main = images.find((i) => i.kind === 'main');
     if (!main) return;
-    const target = images.find((i) => i.kind === 'cleaned') ?? main;
+    const target = images.find((i) => i.kind === 'cleaned' && i.crop_top !== null && i.derived_from === main.id) ?? main;
     try {
       setIsCuttingOut(true);
       setCutoutStatus('Connexion au service BiRefNet (serveur)…');
       setCropSuccess(null);
 
-      const { removeBackgroundServer, removeBackgroundClient } = await import('@/lib/services/background-removal');
+      const { removeBackgroundServer } = await import('@/lib/services/background-removal');
 
       // ── Niveau 1 : API serveur BiRefNet_lite (recommandé) ─────────────────────────
       try {
-        setCutoutStatus('BiRefNet_lite (serveur) — 1ère fois : téléchargement ~224 Mo…');
+        setCutoutStatus('BiRefNet + rembg local — première exécution : préparation du modèle…');
         const result = await removeBackgroundServer(
           computerId,
           target.id,
@@ -286,35 +286,14 @@ export default function RenderStudioModal({
         setCropTick((t) => t + 1);
         setLoadingImg(true);
         setImgTick((t) => t + 1);
-        setCropSuccess('✨ Détourage BiRefNet_lite réussi ! PC isolé sur fond transparent.');
+        setCropSuccess(`Détourage réussi avec ${result.method} en ${(result.durationMs / 1000).toFixed(1)} s.`);
         setTimeout(() => setCropSuccess(null), 5000);
         if (onUpdated) onUpdated();
         return; // succès — on sort ici
       } catch (serverErr) {
-        console.warn('[Détourage] Serveur BiRefNet échoué, passage RMBG navigateur :', serverErr);
-        setCutoutStatus('Serveur indisponible, passage RMBG-1.4 (navigateur)…');
+        console.warn('[Détourage] moteur serveur indisponible :', serverErr);
+        throw serverErr;
       }
-
-      // ── Niveau 2 : RMBG-1.4 client-side (fallback) ─────────────────────────
-      const imageSrc = `/api/images/${target.id}`;
-      const blob = await removeBackgroundClient(imageSrc, (msg) => setCutoutStatus(msg));
-
-      setCutoutStatus('Sauvegarde du PNG détouré…');
-      const formData = new FormData();
-      formData.append('file', blob, `cutout_${computerId}.png`);
-      formData.append('imageId', main.id);
-
-      const res = await fetch(`/api/computers/${computerId}/cutout`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur lors du détourage');
-
-      if (data.images) setImages(data.images);
-      setCropTick((t) => t + 1);
-      setLoadingImg(true);
-      setImgTick((t) => t + 1);
-      setCropSuccess('✨ Détourage RMBG-1.4 appliqué (qualité réduite — serveur BiRefNet requis pour meilleur résultat).');
-      setTimeout(() => setCropSuccess(null), 7000);
-      if (onUpdated) onUpdated();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erreur lors du détourage IA');
     } finally {

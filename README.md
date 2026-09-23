@@ -195,3 +195,35 @@ les services `image-preprocessor`, `region-detector`, `ocr-extractor` et `spec-n
 - Les visuels sont générés côté serveur : fond `sharp` + photos recadrées en « cover »
   (ratio préservé, pas de déformation) + calque de texte SVG (polices système DejaVu).
 - Port par défaut : **3000** (`npm run dev` / `npm start`, host `0.0.0.0`).
+
+## Détourage IA local
+
+Le détourage utilise de préférence un service `rembg` local et persistant avec BiRefNet. Il n'y a pas d'API payante et les photos ne quittent pas la machine.
+
+```bash
+# Installation initiale
+npm run install-rembg
+
+# Terminal 1 : moteur de détourage, modèle chargé une seule fois
+npm run start-rembg
+
+# Terminal 2 : application
+npm run dev
+```
+
+Le modèle par défaut est `birefnet-general-lite`, adapté à une machine standard. Pour privilégier la qualité sur une machine disposant de davantage de mémoire :
+
+```bash
+BACKGROUND_REMOVAL_MODEL=birefnet-general npm run start-rembg
+```
+
+L'application vérifie que la sortie est un PNG RGBA, contrôle la couverture du masque et refuse les résultats manifestement vides ou entièrement opaques. Chaque nouveau détourage repart de la photo originale et conserve la méthode, le modèle, la durée et la couverture du masque dans la réponse de l'API.
+
+
+### Profil matériel recommandé pour Dell Latitude 5440
+
+La configuration validée pour ce projet est un Dell Latitude 5440 équipé d'un Intel Core i5-1245U, de 16 Go de RAM DDR4 et d'un SSD NVMe de 512 Go sous Ubuntu 26.04.1 LTS. Le GPU Intel Iris Xe est intégré et ne doit pas être considéré comme une accélération CUDA disponible pour rembg.
+
+Avec cette machine, le profil recommandé est `birefnet-general-lite`. Il limite la mémoire utilisée tout en conservant une qualité adaptée aux photos de PC. Le modèle `birefnet-general` est réservé aux machines disposant d'une marge mémoire supérieure ; il n'est pas recommandé comme réglage par défaut sur cette configuration. Le traitement CPU peut prendre plusieurs secondes lors de la première inférence, puis le modèle reste chargé par le service persistant.
+
+La capacité actuelle de batterie, estimée à environ 54 %, n'empêche pas le traitement. Pour les traitements en série, il est cependant préférable de travailler sur secteur afin d'éviter une réduction automatique de la fréquence CPU.

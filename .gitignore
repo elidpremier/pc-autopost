@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.venv-rembg/
 
 # Next.js
 .next/
