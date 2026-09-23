@@ -80,6 +80,7 @@ export default function RenderStudioModal({
   const [cropRatio, setCropRatio] = useState<number>(0.32);
   const [isCropping, setIsCropping] = useState(false);
   const [isCuttingOut, setIsCuttingOut] = useState(false);
+  const [cutoutModel, setCutoutModel] = useState<'birefnet-general-lite' | 'birefnet-general'>('birefnet-general-lite');
   const [cutoutStatus, setCutoutStatus] = useState<string | null>(null);
   const [cropSuccess, setCropSuccess] = useState<string | null>(null);
   const [cropTick, setCropTick] = useState<number>(0);
@@ -276,10 +277,11 @@ export default function RenderStudioModal({
 
       // ── Niveau 1 : API serveur BiRefNet_lite (recommandé) ─────────────────────────
       try {
-        setCutoutStatus('BiRefNet + rembg local — première exécution : préparation du modèle…');
+        setCutoutStatus(`${cutoutModel === 'birefnet-general' ? 'BiRefNet General' : 'BiRefNet Lite'} + rembg local — préparation du modèle…`);
         const result = await removeBackgroundServer(
           computerId,
           target.id,
+          cutoutModel,
           (msg) => setCutoutStatus(msg)
         );
         if (result.images) setImages(result.images);
@@ -687,6 +689,15 @@ export default function RenderStudioModal({
 
                     {/* Actions de recadrage & Détourage IA Option A */}
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900/70 p-1 text-[11px] font-bold" title="Le modèle lourd est plus précis mais consomme davantage de mémoire et de temps CPU">
+                        <span className="px-1.5 text-slate-400">Modèle</span>
+                        <button type="button" onClick={() => setCutoutModel('birefnet-general-lite')} disabled={isCropping || isCuttingOut} className={`rounded-lg px-2 py-1.5 transition ${cutoutModel === 'birefnet-general-lite' ? 'bg-emerald-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}>
+                          Lite
+                        </button>
+                        <button type="button" onClick={() => setCutoutModel('birefnet-general')} disabled={isCropping || isCuttingOut} className={`rounded-lg px-2 py-1.5 transition ${cutoutModel === 'birefnet-general' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
+                          Qualité
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={handleReCrop}

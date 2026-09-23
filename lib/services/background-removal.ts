@@ -8,16 +8,19 @@ export type RemovalResponse = {
   warnings: string[];
 };
 
+export type RemovalModel = 'birefnet-general-lite' | 'birefnet-general';
+
 export async function removeBackgroundServer(
   computerId: string,
   imageId: string,
+  model: RemovalModel = 'birefnet-general-lite',
   onProgress?: (msg: string) => void,
 ): Promise<RemovalResponse> {
   onProgress?.('Analyse du produit avec le moteur de détourage local…');
   const res = await fetch(`/api/computers/${computerId}/remove-bg`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageId }),
+    body: JSON.stringify({ imageId, model }),
     signal: AbortSignal.timeout(190_000),
   });
   const data = await res.json().catch(() => ({}));

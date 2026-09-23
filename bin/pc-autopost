@@ -17,6 +17,10 @@ PORT=3000
 URL="http://localhost:${PORT}"
 PID_FILE="${PROJECT_DIR}/.pc-autopost.pid"
 LOG_FILE="${PROJECT_DIR}/.pc-autopost.log"
+REMBG_PORT=7000
+REMBG_URL="http://127.0.0.1:${REMBG_PORT}"
+REMBG_PID_FILE="${PROJECT_DIR}/.pc-autopost-rembg.pid"
+REMBG_LOG_FILE="${PROJECT_DIR}/.pc-autopost-rembg.log"
 
 # Fonction d'affichage des erreurs avec notification Desktop si nécessaire
 show_error() {
@@ -85,7 +89,40 @@ if [ ! -d "${PROJECT_DIR}/node_modules" ] || [ ! -f "${PROJECT_DIR}/node_modules
 fi
 
 # ------------------------------------------------------------------------------
-# 3. Vérification du build Next.js (.next/BUILD_ID)
+# 3. Démarrage automatique du moteur de détourage local
+# ------------------------------------------------------------------------------
+is_rembg_running() {
+  curl -fsS --max-time 2 "${REMBG_URL}/api" >/dev/null 2>&1
+}
+
+if ! is_rembg_running; then
+  if [ ! -x "${PROJECT_DIR}/.venv-rembg/bin/rembg" ]; then
+    echo "📦 Installation initiale du moteur de détourage rembg…"
+    npm run install-rembg >> "${REMBG_LOG_FILE}" 2>&1 || {
+      show_error "Impossible d'installer rembg. Consultez ${REMBG_LOG_FILE}."
+      exit 1
+    }
+  fi
+  echo "🖼️ Démarrage automatique du moteur rembg (BiRefNet Lite)…"
+  BACKGROUND_REMOVAL_PORT="${REMBG_PORT}" nohup bash "${PROJECT_DIR}/scripts/start-rembg.sh" >> "${REMBG_LOG_FILE}" 2>&1 &
+  REMBG_PID=$!
+  disown "${REMBG_PID}" 2>/dev/null || true
+  echo "${REMBG_PID}" > "${REMBG_PID_FILE}"
+  for ATTEMPT in $(seq 1 90); do
+    is_rembg_running && break
+    sleep 1
+  done
+  if ! is_rembg_running; then
+    show_error "Le moteur rembg ne répond pas sur ${REMBG_URL}. Consultez ${REMBG_LOG_FILE}."
+    exit 1
+  fi
+  echo "✅ Moteur rembg prêt sur ${REMBG_URL}"
+else
+  echo "✅ Moteur rembg déjà actif sur ${REMBG_URL}."
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Vérification du build Next.js (.next/BUILD_ID)
 # ------------------------------------------------------------------------------
 if [ ! -f "${PROJECT_DIR}/.next/BUILD_ID" ]; then
   echo "🔨 Compilation de l'application en mode production (npm run build)..."
@@ -93,7 +130,7 @@ if [ ! -f "${PROJECT_DIR}/.next/BUILD_ID" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Gestion du serveur HTTP
+# 5. Gestion du serveur HTTP
 # ------------------------------------------------------------------------------
 is_server_running() {
   if command -v curl >/dev/null 2>&1; then
@@ -128,7 +165,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Ouverture du navigateur
+# 6. Ouverture du navigateur
 # ------------------------------------------------------------------------------
 open_browser() {
   # Recherche d'un navigateur avec support --app

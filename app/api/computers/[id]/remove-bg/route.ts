@@ -15,8 +15,16 @@ let hfProcessor: any = null;
 let hfLoadPromise: Promise<void> | null = null;
 
 const removalUrl = (process.env.BACKGROUND_REMOVAL_URL || '').replace(/\/$/, '');
-const configuredModel = process.env.BACKGROUND_REMOVAL_MODEL || 'birefnet-general-lite';
+const allowedModels = ['birefnet-general-lite', 'birefnet-general'] as const;
+type RemovalModel = typeof allowedModels[number];
+const configuredModel: RemovalModel = allowedModels.includes(process.env.BACKGROUND_REMOVAL_MODEL as RemovalModel)
+  ? process.env.BACKGROUND_REMOVAL_MODEL as RemovalModel
+  : 'birefnet-general-lite';
 const timeoutMs = Number(process.env.BACKGROUND_REMOVAL_TIMEOUT_MS || 120_000);
+
+function resolveModel(value: unknown): RemovalModel {
+  return allowedModels.includes(value as RemovalModel) ? value as RemovalModel : configuredModel;
+}
 
 function ownedImage(computerId: string, imageId: string | undefined): ImageRow | null {
   if (!imageId) return null;
@@ -35,7 +43,7 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
   return fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }
 
-async function removeWithRembg(srcPath: string, destPath: string): Promise<RemovalResult> {
+async function removeWithRembg(srcPath: string, destPath: string, model: RemovalModel): Promise<RemovalResult> {
   if (!removalUrl) throw new Error('BACKGROUND_REMOVAL_URL non configurée');
   const started = Date.now();
   const input = await fs.promises.readFile(srcPath);
@@ -43,14 +51,14 @@ async function removeWithRembg(srcPath: string, destPath: string): Promise<Remov
   form.append('file', new Blob([input], { type: 'image/jpeg' }), path.basename(srcPath));
   // rembg 2.x lit le modèle dans le champ multipart `model`; le query string
   // est ignoré par certaines versions et déclenche alors le modèle par défaut.
-  form.append('model', configuredModel);
+  form.append('model', model);
   const url = `${removalUrl}/api/remove`;
   const response = await fetchWithTimeout(url, { method: 'POST', body: form });
   if (!response.ok) throw new Error(`rembg HTTP ${response.status}`);
   const output = Buffer.from(await response.arrayBuffer());
   if (output.length < 100) throw new Error('rembg a renvoyé un fichier vide');
   await fs.promises.writeFile(destPath, output);
-  return { method: 'rembg-http', model: configuredModel, durationMs: Date.now() - started, warnings: [] };
+  return { method: 'rembg-http', model, durationMs: Date.now() - started, warnings: [] };
 }
 
 async function loadHf(): Promise<void> {
@@ -108,8 +116,9 @@ async function validateOutput(filePath: string): Promise<{ width: number; height
 export async function POST(req: Request, { params }: Ctx) {
   const computer = getComputer(params.id);
   if (!computer) return NextResponse.json({ error: 'Produit introuvable' }, { status: 404 });
-  let body: { imageId?: string } = {};
+  let body: { imageId?: string; model?: string } = {};
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'JSON invalide' }, { status: 400 }); }
+  const requestedModel = resolveModel(body.model);
 
   const requested = ownedImage(computer.id, body.imageId);
   if (body.imageId && !requested) return NextResponse.json({ error: 'Image inconnue ou non rattachée à ce produit' }, { status: 403 });
@@ -128,10 +137,11 @@ export async function POST(req: Request, { params }: Ctx) {
   try {
     let result: RemovalResult;
     try {
-      result = await removeWithRembg(srcPath, tempPath);
+      result = await removeWithRembg(srcPath, tempPath, requestedModel);
     } catch (rembgError) {
       console.warn('[remove-bg] rembg indisponible, fallback BiRefNet Node :', rembgError);
       result = await removeWithHf(srcPath, tempPath);
+      if (requestedModel === 'birefnet-general') result.warnings.push('Le modèle lourd nécessite rembg ; fallback léger utilisé');
     }
     const output = await validateOutput(tempPath);
     await fs.promises.rename(tempPath, destPath);

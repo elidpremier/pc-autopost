@@ -227,3 +227,21 @@ La configuration validée pour ce projet est un Dell Latitude 5440 équipé d'un
 Avec cette machine, le profil recommandé est `birefnet-general-lite`. Il limite la mémoire utilisée tout en conservant une qualité adaptée aux photos de PC. Le modèle `birefnet-general` est réservé aux machines disposant d'une marge mémoire supérieure ; il n'est pas recommandé comme réglage par défaut sur cette configuration. Le traitement CPU peut prendre plusieurs secondes lors de la première inférence, puis le modèle reste chargé par le service persistant.
 
 La capacité actuelle de batterie, estimée à environ 54 %, n'empêche pas le traitement. Pour les traitements en série, il est cependant préférable de travailler sur secteur afin d'éviter une réduction automatique de la fréquence CPU.
+
+
+### Lancement depuis le bureau
+
+Le raccourci **PC AutoPost** démarre désormais automatiquement le moteur rembg, puis l'application Next.js et enfin le navigateur. Il n'est plus nécessaire d'ouvrir deux terminaux.
+
+Au premier lancement, le raccourci installe le moteur et télécharge le modèle BiRefNet Lite. Cette étape peut prendre quelques minutes. Les lancements suivants réutilisent le modèle en cache.
+
+```bash
+npm run install-desktop
+```
+
+Les journaux sont disponibles dans :
+
+- `.pc-autopost.log` pour l'application ;
+- `.pc-autopost-rembg.log` pour le moteur de détourage.
+
+Les requêtes `GET /` en `404` dans les logs rembg sont normales : le service expose son API sous `/api`, pas une page d'accueil. L'application utilise automatiquement `http://127.0.0.1:7000/api` pour vérifier sa disponibilité.
