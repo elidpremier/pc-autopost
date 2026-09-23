@@ -86,14 +86,12 @@ async function removeWithHf(srcPath: string, destPath: string): Promise<RemovalR
   await loadHf();
   const sharp = (await import('sharp')).default;
   const input = await fs.promises.readFile(srcPath);
-  const metadata = await sharp(input).metadata();
-  const mime = metadata.format === 'png' ? 'image/png' : metadata.format === 'webp' ? 'image/webp' : 'image/jpeg';
-  const image = await RawImage.fromURL(`data:${mime};base64,${input.toString('base64')}`);
+  const rgba = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const image = new RawImage(new Uint8Array(rgba.data), rgba.info.width, rgba.info.height, rgba.info.channels);
   const { pixel_values } = await hfProcessor(image);
   const { output_image } = await hfModel({ input_image: pixel_values });
   if (!output_image?.[0]) throw new Error('BiRefNet : sortie de masque absente');
   const mask = await RawImage.fromTensor(output_image[0].sigmoid().mul(255).to('uint8')).resize(image.width, image.height);
-  const rgba = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const maskData = mask.data as Uint8Array;
   if (maskData.length !== rgba.info.width * rgba.info.height) throw new Error('BiRefNet : dimensions de masque incohérentes');
   for (let i = 0; i < maskData.length; i++) rgba.data[i * 4 + 3] = maskData[i];
