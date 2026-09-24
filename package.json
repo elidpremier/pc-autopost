@@ -18,6 +18,7 @@
     "install-desktop": "bash scripts/install-desktop.sh",
     "install-rembg": "bash scripts/install-rembg.sh",
     "start-rembg": "bash scripts/start-rembg.sh",
+    "stop": "bash scripts/stop.sh",
     "launcher": "bash bin/pc-autopost"
   },
   "dependencies": {

@@ -198,24 +198,24 @@ les services `image-preprocessor`, `region-detector`, `ocr-extractor` et `spec-n
 
 ## Détourage IA local
 
-Le détourage utilise de préférence un service `rembg` local et persistant avec BiRefNet. Il n'y a pas d'API payante et les photos ne quittent pas la machine.
+Le détourage Lite utilise directement `onnx-community/BiRefNet_lite-ONNX` dans Next.js. C'est le même modèle BiRefNet Lite que celui de rembg, mais sans serveur Python persistant : la qualité reste la même et la consommation RAM est nettement plus faible. Le modèle General, plus lourd, reste disponible via rembg lorsque la meilleure précision est nécessaire.
 
 ```bash
 # Installation initiale
 npm run install-rembg
 
-# Terminal 1 : moteur de détourage, modèle chargé une seule fois
-npm run start-rembg
-
-# Terminal 2 : application
+# Lancement normal : Lite intégré, aucun rembg nécessaire
 npm run dev
 ```
 
 Le modèle par défaut est `birefnet-general-lite`, adapté à une machine standard. Pour privilégier la qualité sur une machine disposant de davantage de mémoire :
 
 ```bash
-BACKGROUND_REMOVAL_MODEL=birefnet-general npm run start-rembg
+# Dans un autre terminal, uniquement pour utiliser General
+npm run start-rembg
 ```
+
+Le premier chargement de `birefnet-general` peut prendre plusieurs minutes sur CPU et plusieurs Go de RAM. L'application refuse désormais de démarrer ce mode s'il reste moins de 12 Go disponibles, afin d'éviter que GNOME tue la session. Fermez VS Code, Firefox et les autres applications lourdes avant de réessayer, ou utilisez Lite. Le délai peut être ajusté avec `BACKGROUND_REMOVAL_HEAVY_TIMEOUT_MS`. Ne lancez pas rembg pour le mode Lite.
 
 L'application vérifie que la sortie est un PNG RGBA, contrôle la couverture du masque et refuse les résultats manifestement vides ou entièrement opaques. Chaque nouveau détourage repart de la photo originale et conserve la méthode, le modèle, la durée et la couverture du masque dans la réponse de l'API.
 
@@ -229,9 +229,19 @@ Avec cette machine, le profil recommandé est `birefnet-general-lite`. Il limite
 La capacité actuelle de batterie, estimée à environ 54 %, n'empêche pas le traitement. Pour les traitements en série, il est cependant préférable de travailler sur secteur afin d'éviter une réduction automatique de la fréquence CPU.
 
 
+### Arrêter l'application
+
+Après le travail, exécutez :
+
+```bash
+npm run stop
+```
+
+Cette commande arrête Next.js et rembg sur les ports utilisés par PC AutoPost. Avec le lanceur bureau, elle ferme aussi les processus enregistrés dans les fichiers PID.
+
 ### Lancement depuis le bureau
 
-Le raccourci **PC AutoPost** démarre désormais automatiquement le moteur rembg, puis l'application Next.js et enfin le navigateur. Il n'est plus nécessaire d'ouvrir deux terminaux.
+Le raccourci **PC AutoPost** démarre l'application avec BiRefNet Lite intégré, puis ouvre le navigateur. Il ne démarre pas rembg automatiquement afin d'éviter plusieurs Go de RAM inutilisés. Pour General, lancez auparavant `npm run start-rembg`.
 
 Au premier lancement, le raccourci installe le moteur et télécharge le modèle BiRefNet Lite. Cette étape peut prendre quelques minutes. Les lancements suivants réutilisent le modèle en cache.
 
@@ -242,6 +252,6 @@ npm run install-desktop
 Les journaux sont disponibles dans :
 
 - `.pc-autopost.log` pour l'application ;
-- `.pc-autopost-rembg.log` pour le moteur de détourage.
+- `.pc-autopost-rembg.log` pour le moteur rembg General, lorsqu'il est démarré.
 
 Les requêtes `GET /` en `404` dans les logs rembg sont normales : le service expose son API sous `/api`, pas une page d'accueil. L'application utilise automatiquement `http://127.0.0.1:7000/api` pour vérifier sa disponibilité.

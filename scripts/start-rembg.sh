@@ -8,4 +8,4 @@ fi
 port="${BACKGROUND_REMOVAL_PORT:-7000}"
 export BACKGROUND_REMOVAL_URL="${BACKGROUND_REMOVAL_URL:-http://127.0.0.1:${port}}"
 export BACKGROUND_REMOVAL_MODEL="${BACKGROUND_REMOVAL_MODEL:-birefnet-general-lite}"
-exec .venv-rembg/bin/rembg s --host 127.0.0.1 --port "$port" --no-ui --log_level info
+exec .venv-rembg/bin/rembg s --host 127.0.0.1 --port "$port" --threads 1 --no-ui --log_level info

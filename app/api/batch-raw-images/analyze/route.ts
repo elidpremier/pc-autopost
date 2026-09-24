@@ -41,6 +41,7 @@ export type AnalyzedRawItem = {
   currency: string;
   condition: Condition;
   status: string;
+  cutoutFilename?: string;
 };
 
 export async function POST(req: Request) {

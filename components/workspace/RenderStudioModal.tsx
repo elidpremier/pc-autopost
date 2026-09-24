@@ -694,8 +694,8 @@ export default function RenderStudioModal({
                         <button type="button" onClick={() => setCutoutModel('birefnet-general-lite')} disabled={isCropping || isCuttingOut} className={`rounded-lg px-2 py-1.5 transition ${cutoutModel === 'birefnet-general-lite' ? 'bg-emerald-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}>
                           Lite
                         </button>
-                        <button type="button" onClick={() => setCutoutModel('birefnet-general')} disabled={isCropping || isCuttingOut} className={`rounded-lg px-2 py-1.5 transition ${cutoutModel === 'birefnet-general' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
-                          Qualité
+                        <button type="button" onClick={() => setCutoutModel('birefnet-general')} disabled={isCropping || isCuttingOut} className={`rounded-lg px-2 py-1.5 transition ${cutoutModel === 'birefnet-general' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`} title="Consomme beaucoup de RAM : fermez les applications lourdes avant de lancer">
+                          Qualité (RAM élevée)
                         </button>
                       </div>
                       <button

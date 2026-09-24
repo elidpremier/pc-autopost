@@ -21,7 +21,7 @@ export async function removeBackgroundServer(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageId, model }),
-    signal: AbortSignal.timeout(190_000),
+    signal: AbortSignal.timeout(model === 'birefnet-general' ? 600_000 : 190_000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Erreur serveur : ${res.status}`);

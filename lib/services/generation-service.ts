@@ -738,10 +738,17 @@ function buildSvgPairForTemplate(
 export type PhotosForRender = { main?: string; secondary?: string };
 
 async function photoFit(src: string, w: number, h: number, bg = { r: 11, g: 8, b: 19, alpha: 1 }): Promise<Buffer> {
-  return sharp(src)
-    .resize(w, h, { fit: 'contain', background: bg })
-    .jpeg({ quality: 94 })
-    .toBuffer();
+  const source = sharp(src).rotate();
+  const metadata = await source.metadata();
+  const image = metadata.hasAlpha
+    ? source.trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 8 })
+    : source;
+  const fitted = image.resize(w, h, {
+    fit: 'contain',
+    background: metadata.hasAlpha ? { ...bg, alpha: 0 } : bg,
+  });
+  if (metadata.hasAlpha) return fitted.png({ compressionLevel: 6 }).toBuffer();
+  return fitted.jpeg({ quality: 94 }).toBuffer();
 }
 
 async function photoRatioFor(photos: PhotosForRender, format: Format): Promise<number> {

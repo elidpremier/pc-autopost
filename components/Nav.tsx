@@ -1,6 +1,23 @@
+ 'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function Nav() {
+  const [stopping, setStopping] = useState(false);
+
+  async function stopApp() {
+    if (!window.confirm('Fermer PC AutoPost et ses services locaux ?')) return;
+    setStopping(true);
+    try {
+      await fetch('/api/system/stop', { method: 'POST' });
+      document.body.innerHTML = '<main style="font-family: sans-serif; padding: 3rem; text-align: center"><h1>PC AutoPost est arrêté</h1><p>Vous pouvez fermer cet onglet.</p></main>';
+    } catch {
+      setStopping(false);
+      window.alert('Impossible d’arrêter automatiquement l’application. Utilisez : npm run stop');
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
@@ -26,6 +43,9 @@ export default function Nav() {
           <Link href="/computers/new" className="btn-primary ml-1 !py-2 text-xs">
             + Ajouter 1 PC
           </Link>
+          <button type="button" onClick={stopApp} disabled={stopping} className="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50" title="Fermer l’application">
+            {stopping ? 'Arrêt…' : '⏻'}
+          </button>
         </nav>
       </div>
     </header>

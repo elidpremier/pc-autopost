@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import path from 'node:path';
+import fs from 'node:fs';
 import {
   createComputer, addImage, replaceMainImages, addExtraction,
   addGeneration, getSettings, LOGOS_DIR, ORIGINALS_DIR, CLEANED_DIR,
@@ -7,6 +8,7 @@ import {
 import { cropBottom } from '@/lib/services/image-service';
 import { renderFormat, buildTemplateData, TEMPLATES } from '@/lib/services/generation-service';
 import type { Condition, Format, StorageType } from '@/lib/types';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -31,6 +33,7 @@ type IncomingItem = {
   currency?: string;
   condition?: Condition;
   rawText?: string;
+  cutoutFilename?: string;
 };
 
 export async function POST(req: Request) {
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
     const mainRow = addImage(computer.id, 'main', item.filename, item.width, item.height, null, 'none', null);
     replaceMainImages(computer.id, [mainRow.id]);
 
-    // 3. Effectuer le recadrage déterministe (retire la bannière texte supérieure)
+    // 3. Utiliser le détourage préparé ou effectuer le recadrage déterministe.
     const ratio = typeof item.cropRatio === 'number' && item.cropRatio > 0.05 && item.cropRatio < 0.9 ? item.cropRatio : 0.32;
     const cropTop = Math.round(ratio * item.height);
     const origAbs = path.join(ORIGINALS_DIR, item.filename);
@@ -105,13 +108,21 @@ export async function POST(req: Request) {
     let cleanedFilename = item.filename;
     let mainPhotoPath = origAbs;
 
-    try {
-      const cleaned = await cropBottom(origAbs, item.width, item.height, cropTop);
-      addImage(computer.id, 'cleaned', cleaned.filename, cleaned.width, cleaned.height, cropTop, 'manual', mainRow.id);
-      cleanedFilename = cleaned.filename;
-      mainPhotoPath = path.join(CLEANED_DIR, cleaned.filename);
-    } catch {
-      // Fallback sur l'image originale si le crop échoue
+    const cutoutPath = item.cutoutFilename ? path.join(CLEANED_DIR, item.cutoutFilename) : null;
+    if (cutoutPath && fs.existsSync(cutoutPath)) {
+      const cutoutMeta = await sharp(cutoutPath).metadata();
+      cleanedFilename = item.cutoutFilename!;
+      mainPhotoPath = cutoutPath;
+      addImage(computer.id, 'cleaned', cleanedFilename, cutoutMeta.width || item.width, cutoutMeta.height || item.height, null, 'none', mainRow.id);
+    } else {
+      try {
+        const cleaned = await cropBottom(origAbs, item.width, item.height, cropTop);
+        addImage(computer.id, 'cleaned', cleaned.filename, cleaned.width, cleaned.height, cropTop, 'manual', mainRow.id);
+        cleanedFilename = cleaned.filename;
+        mainPhotoPath = path.join(CLEANED_DIR, cleaned.filename);
+      } catch {
+        // Fallback sur l'image originale si le crop échoue
+      }
     }
 
     // 4. Trace de l'extraction OCR / Texte s'il y en a une

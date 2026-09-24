@@ -59,7 +59,7 @@ export default function PhotoSection({ computerId, images, onImagesChange, extra
       const source = cleaned?.crop_top !== null && cleaned?.derived_from === main.id ? cleaned : main;
       const result = await removeBackgroundServer(computerId, source.id, 'birefnet-general-lite', setInfo);
       onImagesChange(result.images as ImageRow[]); setView('cleaned');
-      const method = result.method === 'rembg-http' ? 'rembg + BiRefNet' : 'BiRefNet Node (fallback)';
+      const method = result.method === 'rembg-http' ? `rembg + ${result.model}` : 'BiRefNet Node (fallback)';
       setInfo(`Détourage réussi avec ${method} en ${(result.durationMs / 1000).toFixed(1)} s. Couverture du masque : ${(result.maskCoverage * 100).toFixed(1)} %.`);
       if (result.warnings.length) setInfo((current) => `${current} ${result.warnings.join(' ')}`);
     } catch (e) { setError(e instanceof Error ? e.message : 'Erreur détourage IA'); setInfo(''); }

@@ -89,13 +89,13 @@ if [ ! -d "${PROJECT_DIR}/node_modules" ] || [ ! -f "${PROJECT_DIR}/node_modules
 fi
 
 # ------------------------------------------------------------------------------
-# 3. Démarrage automatique du moteur de détourage local
+# 3. Vérification optionnelle du moteur lourd
 # ------------------------------------------------------------------------------
 is_rembg_running() {
   curl -fsS --max-time 2 "${REMBG_URL}/api" >/dev/null 2>&1
 }
 
-if ! is_rembg_running; then
+if [[ "${PC_AUTOPOST_START_REMBG:-0}" == "1" ]] && ! is_rembg_running; then
   if [ ! -x "${PROJECT_DIR}/.venv-rembg/bin/rembg" ]; then
     echo "📦 Installation initiale du moteur de détourage rembg…"
     npm run install-rembg >> "${REMBG_LOG_FILE}" 2>&1 || {
@@ -117,9 +117,14 @@ if ! is_rembg_running; then
     exit 1
   fi
   echo "✅ Moteur rembg prêt sur ${REMBG_URL}"
-else
+elif is_rembg_running; then
   echo "✅ Moteur rembg déjà actif sur ${REMBG_URL}."
+else
+  echo "ℹ️ BiRefNet Lite sera exécuté directement par Next.js (RAM réduite)."
 fi
+
+# Le serveur Next.js doit utiliser le même moteur que celui vérifié ci-dessus.
+export BACKGROUND_REMOVAL_URL="${BACKGROUND_REMOVAL_URL:-${REMBG_URL}}"
 
 # ------------------------------------------------------------------------------
 # 4. Vérification du build Next.js (.next/BUILD_ID)

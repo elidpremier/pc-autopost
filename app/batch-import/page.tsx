@@ -57,6 +57,9 @@ export default function BatchImportPage() {
   const [formats, setFormats] = useState<Format[]>(['square', 'portrait', 'story', 'detail']);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isCuttingOut, setIsCuttingOut] = useState(false);
+  const [cutoutModel, setCutoutModel] = useState<'birefnet-general-lite' | 'birefnet-general'>('birefnet-general-lite');
+  const [cutoutProgress, setCutoutProgress] = useState('');
 
   // Traitement d'analyse lors de la sélection de fichiers
   async function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -177,6 +180,39 @@ export default function BatchImportPage() {
     setSelectedIds([]);
   }
 
+  async function handleBatchCutout() {
+    const targets = selectedIds.length ? items.filter((item) => selectedIds.includes(item.id)) : items;
+    if (!targets.length) return;
+    setIsCuttingOut(true);
+    setErrorMsg('');
+    setCutoutProgress(`Détourage de ${targets.length} photo(s) en cours…`);
+    try {
+      const res = await fetch('/api/batch-raw-images/cutout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: cutoutModel, items: targets.map(({ id, filename }) => ({ id, filename })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors du détourage par lot');
+      const successful = new Map<string, string>(
+        data.results
+          .filter((result: { cutoutFilename?: string }) => result.cutoutFilename)
+          .map((result: { id: string; cutoutFilename: string }) => [result.id, result.cutoutFilename])
+      );
+      setItems((current) => current.map((item) => successful.has(item.id)
+        ? { ...item, cutoutFilename: successful.get(item.id) }
+        : item));
+      const failures = data.results.filter((result: { error?: string }) => result.error);
+      setCutoutProgress(`Détourage terminé : ${successful.size}/${targets.length} réussi(s).`);
+      if (failures.length) setErrorMsg(`${failures.length} photo(s) n'ont pas pu être détourées.`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erreur lors du détourage par lot');
+      setCutoutProgress('');
+    } finally {
+      setIsCuttingOut(false);
+    }
+  }
+
   function toggleFormat(f: Format) {
     if (formats.includes(f)) {
       if (formats.length === 1) return;
@@ -213,6 +249,7 @@ export default function BatchImportPage() {
             currency: i.currency,
             condition: i.condition,
             rawText: i.rawText,
+            cutoutFilename: i.cutoutFilename,
           })),
           formats,
           templateId,
@@ -307,20 +344,40 @@ export default function BatchImportPage() {
             </Link>
 
             {items.length > 0 && !executionResult && (
-              <button
-                type="button"
-                onClick={handleExecuteBatch}
-                disabled={isExecuting || items.some((i) => !i.price_amount)}
-                className="btn-primary bg-gradient-to-r from-lime-400 to-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 shadow-lg shadow-lime-400/20 hover:scale-105 transition disabled:opacity-50"
-              >
-                {isExecuting ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin">⏳</span> Génération du lot...
-                  </span>
-                ) : (
-                  `🚀 Générer ${items.length * formats.length} Affiches (1-Clic)`
-                )}
-              </button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <select
+                  value={cutoutModel}
+                  onChange={(e) => setCutoutModel(e.target.value as 'birefnet-general-lite' | 'birefnet-general')}
+                  disabled={isCuttingOut || isExecuting}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-xs text-slate-200"
+                  aria-label="Modèle de détourage par lot"
+                >
+                  <option value="birefnet-general-lite">Détourage Lite</option>
+                  <option value="birefnet-general">Détourage General</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleBatchCutout}
+                  disabled={isCuttingOut || isExecuting}
+                  className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
+                >
+                  {isCuttingOut ? '✂️ Détourage…' : `✂️ Détourer ${selectedIds.length ? 'la sélection' : 'le lot'}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBatch}
+                  disabled={isExecuting || isCuttingOut || items.some((i) => !i.price_amount)}
+                  className="btn-primary bg-gradient-to-r from-lime-400 to-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 shadow-lg shadow-lime-400/20 hover:scale-105 transition disabled:opacity-50"
+                >
+                  {isExecuting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin">⏳</span> Génération du lot...
+                    </span>
+                  ) : (
+                    `🚀 Générer ${items.length * formats.length} Affiches (1-Clic)`
+                  )}
+                </button>
+              </div>
             )}
           </div>
 
@@ -334,6 +391,11 @@ export default function BatchImportPage() {
           <div className="rounded-2xl bg-rose-500/10 p-4 text-xs font-extrabold text-rose-400 border border-rose-500/20 flex items-center justify-between">
             <span>⚠️ {errorMsg}</span>
             <button onClick={() => setErrorMsg('')} className="text-rose-400 hover:underline">Masquer</button>
+          </div>
+        )}
+        {cutoutProgress && !errorMsg && (
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-300">
+            {cutoutProgress}
           </div>
         )}
 
